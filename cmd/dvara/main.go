@@ -22,6 +22,7 @@ func main() {
 }
 
 func Main() error {
+
 	addrs := flag.String("addrs", "localhost:27017", "comma separated list of mongo addresses")
 	clientIdleTimeout := flag.Duration("client_idle_timeout", 60*time.Minute, "idle timeout for client connections")
 	getLastErrorTimeout := flag.Duration("get_last_error_timeout", time.Minute, "timeout for getLastError pinning")

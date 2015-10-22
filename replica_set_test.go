@@ -6,8 +6,8 @@ import (
 
 	"github.com/facebookgo/subset"
 
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/intercom/mgo"
+	"github.com/intercom/mgo/bson"
 )
 
 func TestReplicaSetMembers(t *testing.T) {

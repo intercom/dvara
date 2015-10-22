@@ -7,8 +7,8 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/intercom/mgo"
+	"github.com/intercom/mgo/bson"
 )
 
 const errNotReplSet = "not running with --replSet"
@@ -29,7 +29,7 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 		Direct:   true,
 		Timeout:  5 * time.Second,
 	}
-	session, err := mgo.DialWithInfo(info)
+	session, err := mgo.DialWithInfo(info, true)
 	if err != nil {
 		return nil, err
 	}

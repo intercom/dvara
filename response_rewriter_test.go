@@ -14,7 +14,7 @@ import (
 	"github.com/facebookgo/inject"
 	"github.com/facebookgo/startstop"
 
-	"gopkg.in/mgo.v2/bson"
+	"github.com/intercom/mgo/bson"
 )
 
 var errInvalidBSON = errors.New("invalid BSON")

@@ -11,8 +11,8 @@ import (
 	"github.com/facebookgo/startstop"
 	"github.com/facebookgo/stats"
 
-	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
+	"github.com/intercom/mgo"
+	"github.com/intercom/mgo/bson"
 )
 
 func TestParallelInsertWithUniqueIndex(t *testing.T) {
