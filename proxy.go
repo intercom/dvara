@@ -148,11 +148,11 @@ func (p *Proxy) newServerConn() (io.Closer, error) {
 		session, err := mgo.DialWithInfo(info)
 		if err == nil {
 			p.Log.Error(session)
-			socket, socketErr := session.AcquireSocket(true)
-			p.Log.Error(socket)
-			p.Log.Error(socketErr)
-			p.Log.Error(socket.Conn)
-			return socket.Conn, nil
+			session.Ping()
+			session.MasterSocket.StopAcceptLoop = true
+			session.Ping()
+			p.Log.Error(session.MasterSocket)
+			return session.MasterSocket.Conn, nil
 		}
 		p.Log.Error(err)
 
