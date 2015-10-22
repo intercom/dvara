@@ -3,14 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	"net/http"
-	_ "net/http/pprof"
 
 	"github.com/facebookgo/gangliamr"
 	"github.com/facebookgo/inject"
@@ -26,9 +22,6 @@ func main() {
 }
 
 func Main() error {
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
 
 	addrs := flag.String("addrs", "localhost:27017", "comma separated list of mongo addresses")
 	clientIdleTimeout := flag.Duration("client_idle_timeout", 60*time.Minute, "idle timeout for client connections")
