@@ -147,7 +147,12 @@ func (p *Proxy) newServerConn() (io.Closer, error) {
 		//c, err := net.Dial("tcp", p.MongoAddr)
 		session, err := mgo.DialWithInfo(info)
 		if err == nil {
-			return session.MasterSocket.Conn, nil
+			p.Log.Error(session)
+			socket, socketErr := session.AcquireSocket(true)
+			p.Log.Error(socket)
+			p.Log.Error(socketErr)
+			p.Log.Error(socket.Conn)
+			return socket.Conn, nil
 		}
 		p.Log.Error(err)
 
