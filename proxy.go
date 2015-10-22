@@ -12,6 +12,7 @@ import (
 
 	"github.com/facebookgo/rpool"
 	"github.com/facebookgo/stats"
+	"github.com/intercom/mgo"
 )
 
 const headerLen = 16
@@ -134,10 +135,19 @@ func (p *Proxy) checkRSChanged() bool {
 // being 6.4 seconds.
 func (p *Proxy) newServerConn() (io.Closer, error) {
 	retrySleep := 50 * time.Millisecond
+	info := &mgo.DialInfo{
+		Addrs:    []string{p.MongoAddr},
+		Username: p.Username,
+		Password: p.Password,
+		Direct:   true,
+		Timeout:  5 * time.Second,
+	}
+
 	for retryCount := 7; retryCount > 0; retryCount-- {
-		c, err := net.Dial("tcp", p.MongoAddr)
+		//c, err := net.Dial("tcp", p.MongoAddr)
+		session, err := mgo.DialWithInfo(info)
 		if err == nil {
-			return c, nil
+			return session.MasterSocket.Conn, nil
 		}
 		p.Log.Error(err)
 
