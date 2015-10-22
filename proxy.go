@@ -145,7 +145,7 @@ func (p *Proxy) newServerConn() (io.Closer, error) {
 
 	for retryCount := 7; retryCount > 0; retryCount-- {
 		//c, err := net.Dial("tcp", p.MongoAddr)
-		session, err := mgo.DialWithInfo(info)
+		session, err := mgo.DialWithInfo(info, false)
 		if err == nil {
 			p.Log.Error(session)
 			session.Ping()

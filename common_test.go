@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"gopkg.in/mgo.v2"
+	"github.com/intercom/mgo"
 
 	"github.com/facebookgo/ensure"
 	"github.com/facebookgo/gangliamr"

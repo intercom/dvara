@@ -11,7 +11,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 
-	"gopkg.in/mgo.v2/bson"
+	"github.com/intercom/mgo/bson"
 )
 
 var (
