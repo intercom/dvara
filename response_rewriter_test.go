@@ -320,6 +320,50 @@ func TestIsMasterResponseRewriterSuccess(t *testing.T) {
 	}
 }
 
+func TestIsMasterNotWorking(t *testing.T) {
+	proxyMapper := fakeProxyMapper{
+		m: map[string]string{
+			"a": "1",
+			"b": "2",
+		},
+	}
+	in := bson.M{
+		"hosts":   []interface{}{"a", "b", "c"},
+		"me":      "a",
+		"primary": "b",
+		"foo":     "bar",
+	}
+	out := bson.M{
+		"hosts":   []interface{}{"1", "2", "3"},
+		"me":      "1",
+		"primary": "2",
+		"foo":     "bar",
+	}
+	r := &IsMasterResponseRewriter{
+		Log:                 nopLogger{},
+		ProxyMapper:         proxyMapper,
+		ReplicaStateCompare: fakeReplicaStateCompare{sameIM: true, sameRS: true},
+		ReplyRW: &ReplyRW{
+			Log: nopLogger{},
+		},
+	}
+
+	var client bytes.Buffer
+	if err := r.Rewrite(&client, fakeSingleDocReply(in)); err != nil {
+		t.Fatal(err)
+	}
+	actualOut := bson.M{}
+	doc := client.Bytes()[headerLen+len(emptyPrefix):]
+	if err := bson.Unmarshal(doc, &actualOut); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(out, actualOut) {
+		spew.Dump(out)
+		spew.Dump(actualOut)
+		t.Fatal("did not get expected output")
+	}
+}
+
 func TestReplSetGetStatusResponseRewriterFailures(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
