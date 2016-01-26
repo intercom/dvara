@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"reflect"
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
@@ -373,6 +374,11 @@ func (r *IsMasterResponseRewriter) Rewrite(client io.Writer, server io.Reader) e
 	}
 	q.Hosts = newHosts
 
+	for _, h := range q.Extra["passives"] {
+		// newP, err := r.ProxyMapper.Proxy(h)
+		fmt.Println("foo")
+	}
+
 	if q.Primary != "" {
 		// failure in mapping the primary is fatal
 		if q.Primary, err = r.ProxyMapper.Proxy(q.Primary); err != nil {
@@ -385,6 +391,12 @@ func (r *IsMasterResponseRewriter) Rewrite(client io.Writer, server io.Reader) e
 			return err
 		}
 	}
+	fmt.Println(reflect.TypeOf(q.Hosts))
+	fmt.Println(reflect.TypeOf(q.Extra["passives"]))
+	// var tmp [4]string
+	// tmp[0] = "matthew"
+	// q.Extra["passives"] = tmp
+	// fmt.Println(q.Extra["passives"])
 	return r.ReplyRW.WriteOne(client, h, prefix, docLen, q)
 }
 
