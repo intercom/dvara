@@ -201,6 +201,7 @@ func (r *ReplicaSet) Start() error {
 			}
 		}(p)
 	}
+
 	wg.Wait()
 	select {
 	default:
