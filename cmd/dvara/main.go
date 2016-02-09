@@ -42,7 +42,7 @@ func Main() error {
 	failedHealthCheckThreshold := flag.Uint("failedhealthcheckthreshold", 3, "How many failed checks before a restart")
 
 	flag.Parse()
-	statsClient := NewDataDogStatsDClient(*metricsAddress, *replicaName)
+	statsClient := NewDataDogStatsDClient(*metricsAddress, "replica:"+*replicaName)
 
 	replicaSet := dvara.ReplicaSet{
 		Addrs:                   *addrs,
