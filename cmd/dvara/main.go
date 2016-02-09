@@ -27,7 +27,7 @@ func Main() error {
 	getLastErrorTimeout := flag.Duration("get_last_error_timeout", time.Minute, "timeout for getLastError pinning")
 	listenAddr := flag.String("listen", "127.0.0.1", "address for listening, for example, 127.0.0.1 for reachable only from the same machine, or 0.0.0.0 for reachable from other machines")
 	maxConnections := flag.Uint("max_connections", 100, "maximum number of connections per mongo")
-	maxPerClientConnections := flag.Uint("max_per_client_connections", 1, "maximum number of connections from a single client")
+	maxPerClientConnections := flag.Uint("max_per_client_connections", 100, "maximum number of connections from a single client")
 	messageTimeout := flag.Duration("message_timeout", 2*time.Minute, "timeout for one message to be proxied")
 	password := flag.String("password", "", "mongodb password")
 	portEnd := flag.Int("port_end", 6010, "end of port range")
@@ -38,6 +38,8 @@ func Main() error {
 	verbose := flag.Bool("verbose", false, "Be really verbose")
 	metricsAddress := flag.String("metrics", "127.0.0.1:8125", "UDP address to send metrics to datadog, default is 127.0.0.1:8125")
 	replicaName := flag.String("replica_name", "", "Replica name, used in metrics and logging, default is empty")
+	healthCheckInterval := flag.Duration("healthcheckinterval", 5*time.Second, "How often to run the health check")
+	failedHealthCheckThreshold := flag.Uint("failedhealthcheckthreshold", 3, "How many failed checks before a restart")
 
 	flag.Parse()
 	statsClient := NewDataDogStatsDClient(*metricsAddress, *replicaName)
@@ -84,6 +86,12 @@ func Main() error {
 	if err := startstop.Start(objects, &log); err != nil {
 		return err
 	}
+
+	hc := &dvara.HealthChecker{
+		HealthCheckInterval:        *healthCheckInterval,
+		FailedHealthCheckThreshold: *failedHealthCheckThreshold,
+	}
+	go hc.HealthCheck(&replicaSet)
 	defer startstop.Stop(objects, &log)
 
 	ch := make(chan os.Signal, 2)
