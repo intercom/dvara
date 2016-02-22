@@ -3,6 +3,7 @@ package dvara
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gopkg.in/mgo.v2"
@@ -78,7 +79,13 @@ func (r *ReplicaSet) runCheck(portStart int, errChan chan<- error) {
 	// dvara opens a port per member of replica set, we don't expect to run more than 5 members in replica set
 	dvaraConnectionString := fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d", portStart, portStart+1, portStart+2, portStart+3, portStart+4)
 
-	session, err := mgo.DialWithTimeout(dvaraConnectionString, TIMEOUT)
+	info := &mgo.DialInfo{
+		Addrs:    strings.Split(dvaraConnectionString, ","),
+		FailFast: true,
+		Direct:   true,
+	}
+
+	session, err := mgo.DialWithInfo(info)
 	if err == nil {
 		defer session.Close()
 		session.SetMode(mgo.Monotonic, true)
