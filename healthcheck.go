@@ -88,7 +88,7 @@ func (r *ReplicaSet) runCheck(portStart int, errChan chan<- error) {
 	session, err := mgo.DialWithInfo(info)
 	if err == nil {
 		defer session.Close()
-		session.SetMode(mgo.Monotonic, true)
+		session.SetMode(mgo.PrimaryPreferred, true)
 		_, isMasterErr := isMaster(session)
 		err = isMasterErr
 	}
