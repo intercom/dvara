@@ -112,6 +112,16 @@ func (p *Proxy) stop(hard bool) error {
 	return nil
 }
 
+func (p *Proxy) checkRSChangedSignificantly() bool {
+	// hasChanged := p.checkRSChanged()
+	// if hasChanged {
+	// TODO(JO): race condition here
+	// go p.ReplicaSet.Restart()
+	// }
+	// return hasChanged
+	return false
+}
+
 func (p *Proxy) checkRSChanged() bool {
 	addrs := p.ReplicaSet.lastState.Addrs()
 	r, err := p.ReplicaSet.ReplicaSetStateCreator.FromAddrs(p.Username, p.Password, addrs, p.ReplicaSet.Name)
@@ -122,7 +132,6 @@ func (p *Proxy) checkRSChanged() bool {
 
 	if err := r.AssertEqual(p.ReplicaSet.lastState); err != nil {
 		p.Log.Error(err)
-		go p.ReplicaSet.Restart()
 		return true
 	}
 
@@ -159,7 +168,7 @@ func (p *Proxy) newServerConn() (io.Closer, error) {
 		p.Log.Error(err)
 
 		// abort if rs changed
-		if p.checkRSChanged() {
+		if p.checkRSChangedSignificantly() {
 			return nil, errNormalClose
 		}
 		time.Sleep(retrySleep)
@@ -271,12 +280,10 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 	}
 
 	c = teeIf(fmt.Sprintf("client %s <=> %s", c.RemoteAddr(), p), c)
-	p.Log.Infof("client %s connected to %s", c.RemoteAddr(), p)
 	stats.BumpSum(p.stats, "client.connected", 1)
 	p.ReplicaSet.ClientsConnected.Inc(1)
 	defer func() {
 		p.ReplicaSet.ClientsConnected.Dec(1)
-		p.Log.Infof("client %s disconnected from %s", c.RemoteAddr(), p)
 		p.wg.Done()
 		if err := c.Close(); err != nil {
 			p.Log.Error(err)

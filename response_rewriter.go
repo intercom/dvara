@@ -360,10 +360,9 @@ func (r *IsMasterResponseRewriter) Rewrite(client io.Writer, server io.Reader) e
 	for _, h := range q.Hosts {
 		newH, err := r.ProxyMapper.Proxy(h)
 		if err != nil {
-			if pme, ok := err.(*ProxyMapperError); ok {
-				if pme.State != ReplicaStateArbiter {
-					r.Log.Errorf("dropping member %s in state %s", h, pme.State)
-				}
+			if _, ok := err.(*ProxyMapperError); ok {
+				// if there's an unknown host in the proxy map
+				// e.g. host unreachable or new host
 				continue
 			}
 			// unknown err
@@ -447,10 +446,10 @@ func (r *ReplSetGetStatusResponseRewriter) Rewrite(client io.Writer, server io.R
 	for _, m := range q.Members {
 		newH, err := r.ProxyMapper.Proxy(m.Name)
 		if err != nil {
-			if pme, ok := err.(*ProxyMapperError); ok {
-				if pme.State != ReplicaStateArbiter {
-					r.Log.Errorf("dropping member %s in state %s", h, pme.State)
-				}
+			if _, ok := err.(*ProxyMapperError); ok {
+				// TODO(JO): add metric
+				// if there's an unknown host in the proxy map
+				// e.g. host unreachable or new host
 				continue
 			}
 			// unknown err
