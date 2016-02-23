@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/facebookgo/rpool"
 	"github.com/facebookgo/stats"
 )
 
@@ -37,7 +36,7 @@ type Proxy struct {
 
 	wg                      sync.WaitGroup
 	closed                  chan struct{}
-	serverPool              rpool.Pool
+	serverPool              Pool
 	stats                   stats.Client
 	maxPerClientConnections *maxPerClientConnections
 }
@@ -58,7 +57,7 @@ func (p *Proxy) Start() error {
 
 	p.closed = make(chan struct{})
 	p.maxPerClientConnections = newMaxPerClientConnections(p.ReplicaSet.MaxPerClientConnections)
-	p.serverPool = rpool.Pool{
+	p.serverPool = Pool{
 		New:               p.newServerConn,
 		CloseErrorHandler: p.serverCloseErrorHandler,
 		Max:               p.ReplicaSet.MaxConnections,
