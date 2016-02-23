@@ -58,11 +58,6 @@
 			"revisionTime": "2015-09-01T13:02:43-07:00"
 		},
 		{
-			"path": "github.com/facebookgo/rpool",
-			"revision": "f18321c7a66cbed1ca4197bd1b16f7825314c169",
-			"revisionTime": "2015-06-12T18:29:20Z"
-		},
-		{
 			"path": "github.com/facebookgo/stack",
 			"revision": "3df46e3d0ab4255cd8a0a6bb79561f33d9910c24",
 			"revisionTime": "2015-06-12T18:29:13Z"
