@@ -2,6 +2,7 @@ package dvara
 
 import (
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -54,6 +55,7 @@ func newHarnessInternal(url string, s stopper, t testing.TB) *Harness {
 		MaxPerClientConnections: 250,
 		GetLastErrorTimeout:     5 * time.Minute,
 		MessageTimeout:          5 * time.Second,
+		Mutex:                   &sync.RWMutex{},
 	}
 	var log nopLogger
 	var graph inject.Graph

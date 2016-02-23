@@ -18,14 +18,21 @@ type HealthChecker struct {
 	HealthCheckInterval        time.Duration
 	FailedHealthCheckThreshold uint
 	Cancel                     bool
+	replicaCheckTryChan        chan struct{}
 }
 
-func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector) {
+func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector, replChecker *ReplicaSetChecker) {
 	ticker := time.NewTicker(checker.HealthCheckInterval)
+
+	if replChecker != nil {
+		checker.replicaCheckTryChan = replChecker.ReplicaCheckTryChan
+		go replChecker.Run()
+	}
 
 	for {
 		select {
 		case <-ticker.C:
+			checker.tryRunReplicaChecker()
 			err := checkable.Check()
 			if err != nil {
 				checker.consecutiveFailures++
@@ -40,6 +47,13 @@ func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector) {
 		if checker.Cancel {
 			return
 		}
+	}
+}
+
+func (checker *HealthChecker) tryRunReplicaChecker() {
+	select {
+	case checker.replicaCheckTryChan <- struct{}{}:
+	default:
 	}
 }
 

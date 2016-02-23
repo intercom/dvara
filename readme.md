@@ -8,7 +8,7 @@ blog post: http://blog.parse.com/2014/06/23/dvara/.
 To build from source you'll need [Go](http://golang.org/).
 Install the app, with latest version
 
-    go get gopkg.in/intercom/dvara.v2/cmd/dvara
+    go get github.com/intercom/dvara
 
 Run the proxy, assuming the mongodb is already running
 
