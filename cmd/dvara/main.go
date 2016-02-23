@@ -11,7 +11,7 @@ import (
 	"github.com/facebookgo/gangliamr"
 	"github.com/facebookgo/inject"
 	"github.com/facebookgo/startstop"
-	"gopkg.in/intercom/dvara.v2"
+	"github.com/intercom/dvara"
 )
 
 func main() {
