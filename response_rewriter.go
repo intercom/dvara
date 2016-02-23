@@ -250,14 +250,6 @@ type ProxyMapper interface {
 	Proxy(h string) (string, error)
 }
 
-// ReplicaStateCompare provides the last ReplicaSetState and allows for
-// checking if it has changed as we rewrite/proxy the isMaster &
-// replSetGetStatus queries.
-type ReplicaStateCompare interface {
-	SameRS(o *replSetGetStatusResponse) bool
-	SameIM(o *isMasterResponse) bool
-}
-
 type responseRewriter interface {
 	Rewrite(client io.Writer, server io.Reader) error
 }
@@ -338,10 +330,9 @@ type isMasterResponse struct {
 
 // IsMasterResponseRewriter rewrites the response for the "isMaster" query.
 type IsMasterResponseRewriter struct {
-	Log                 Logger              `inject:""`
-	ProxyMapper         ProxyMapper         `inject:""`
-	ReplyRW             *ReplyRW            `inject:""`
-	ReplicaStateCompare ReplicaStateCompare `inject:""`
+	Log         Logger      `inject:""`
+	ProxyMapper ProxyMapper `inject:""`
+	ReplyRW     *ReplyRW    `inject:""`
 }
 
 // Rewrite rewrites the response for the "isMaster" query.
@@ -351,9 +342,6 @@ func (r *IsMasterResponseRewriter) Rewrite(client io.Writer, server io.Reader) e
 	h, prefix, docLen, err := r.ReplyRW.ReadOne(server, &q)
 	if err != nil {
 		return err
-	}
-	if !r.ReplicaStateCompare.SameIM(&q) {
-		return errRSChanged
 	}
 
 	var newHosts []string
@@ -424,10 +412,9 @@ type replSetGetStatusResponse struct {
 
 // ReplSetGetStatusResponseRewriter rewrites the "replSetGetStatus" response.
 type ReplSetGetStatusResponseRewriter struct {
-	Log                 Logger              `inject:""`
-	ProxyMapper         ProxyMapper         `inject:""`
-	ReplyRW             *ReplyRW            `inject:""`
-	ReplicaStateCompare ReplicaStateCompare `inject:""`
+	Log         Logger      `inject:""`
+	ProxyMapper ProxyMapper `inject:""`
+	ReplyRW     *ReplyRW    `inject:""`
 }
 
 // Rewrite rewrites the "replSetGetStatus" response.
@@ -438,16 +425,12 @@ func (r *ReplSetGetStatusResponseRewriter) Rewrite(client io.Writer, server io.R
 	if err != nil {
 		return err
 	}
-	if !r.ReplicaStateCompare.SameRS(&q) {
-		return errRSChanged
-	}
 
 	var newMembers []statusMember
 	for _, m := range q.Members {
 		newH, err := r.ProxyMapper.Proxy(m.Name)
 		if err != nil {
 			if _, ok := err.(*ProxyMapperError); ok {
-				// TODO(JO): add metric
 				// if there's an unknown host in the proxy map
 				// e.g. host unreachable or new host
 				continue

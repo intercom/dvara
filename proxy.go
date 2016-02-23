@@ -112,16 +112,6 @@ func (p *Proxy) stop(hard bool) error {
 	return nil
 }
 
-func (p *Proxy) checkRSChangedSignificantly() bool {
-	// hasChanged := p.checkRSChanged()
-	// if hasChanged {
-	// TODO(JO): race condition here
-	// go p.ReplicaSet.Restart()
-	// }
-	// return hasChanged
-	return false
-}
-
 func (p *Proxy) checkRSChanged() bool {
 	addrs := p.ReplicaSet.lastState.Addrs()
 	r, err := p.ReplicaSet.ReplicaSetStateCreator.FromAddrs(p.Username, p.Password, addrs, p.ReplicaSet.Name)
@@ -167,10 +157,6 @@ func (p *Proxy) newServerConn() (io.Closer, error) {
 		}
 		p.Log.Error(err)
 
-		// abort if rs changed
-		if p.checkRSChangedSignificantly() {
-			return nil, errNormalClose
-		}
 		time.Sleep(retrySleep)
 		retrySleep = retrySleep * 2
 	}

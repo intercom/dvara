@@ -364,14 +364,12 @@ func (r *ReplicaSet) ProxyMembers() []string {
 // SameRS checks if the given replSetGetStatusResponse is the same as the last
 // state.
 func (r *ReplicaSet) SameRS(o *replSetGetStatusResponse) bool {
-	return true
-	//return r.lastState.SameRS(o)
+	return r.lastState.SameRS(o)
 }
 
 // SameIM checks if the given isMasterResponse is the same as the last state.
 func (r *ReplicaSet) SameIM(o *isMasterResponse) bool {
-	return true
-	//return r.lastState.SameIM(o)
+	return r.lastState.SameIM(o)
 }
 
 // ProxyMapperError occurs when a known host is being ignored and does not have
