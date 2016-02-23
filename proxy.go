@@ -122,7 +122,6 @@ func (p *Proxy) checkRSChanged() bool {
 
 	if err := r.AssertEqual(p.ReplicaSet.lastState); err != nil {
 		p.Log.Error(err)
-		go p.ReplicaSet.Restart()
 		return true
 	}
 
@@ -158,10 +157,6 @@ func (p *Proxy) newServerConn() (io.Closer, error) {
 		}
 		p.Log.Error(err)
 
-		// abort if rs changed
-		if p.checkRSChanged() {
-			return nil, errNormalClose
-		}
 		time.Sleep(retrySleep)
 		retrySleep = retrySleep * 2
 	}
@@ -271,12 +266,10 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 	}
 
 	c = teeIf(fmt.Sprintf("client %s <=> %s", c.RemoteAddr(), p), c)
-	p.Log.Infof("client %s connected to %s", c.RemoteAddr(), p)
 	stats.BumpSum(p.stats, "client.connected", 1)
 	p.ReplicaSet.ClientsConnected.Inc(1)
 	defer func() {
 		p.ReplicaSet.ClientsConnected.Dec(1)
-		p.Log.Infof("client %s disconnected from %s", c.RemoteAddr(), p)
 		p.wg.Done()
 		if err := c.Close(); err != nil {
 			p.Log.Error(err)
