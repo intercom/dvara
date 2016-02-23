@@ -82,7 +82,8 @@ func (r *ReplicaSet) runCheck(portStart int, errChan chan<- error) {
 	info := &mgo.DialInfo{
 		Addrs:    strings.Split(dvaraConnectionString, ","),
 		FailFast: true,
-		Direct:   true,
+		// Without direct option, healthcheck fails in case there are only secondaries in the replica set
+		Direct: true,
 	}
 
 	session, err := mgo.DialWithInfo(info)
