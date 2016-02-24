@@ -6,8 +6,9 @@ import (
 )
 
 type ReplicaSetChecker struct {
-	Log        Logger
-	replicaSet *ReplicaSet
+	Log                 Logger
+	replicaSet          *ReplicaSet
+	replicaCheckTryChan chan struct{}
 }
 
 type ReplicaSetComparison struct {
@@ -15,6 +16,16 @@ type ReplicaSetComparison struct {
 	ExtraMembers map[string]*Proxy
 	// Missing members that aren't in this state, but are in new
 	MissingMembers map[string]*Proxy
+}
+
+// Run the ReplicSetChecker asynchronously, watching for requests to perform a check on the channel
+func (checker *ReplicaSetChecker) Run() {
+	for {
+		select {
+		case <-checker.replicaCheckTryChan:
+			checker.Check()
+		}
+	}
 }
 
 func (checker *ReplicaSetChecker) Check() error {
