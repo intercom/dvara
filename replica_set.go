@@ -108,6 +108,8 @@ type ReplicaSet struct {
 
 	ClientsConnected metrics.Counter
 
+	Mutex *sync.RWMutex
+
 	proxyToReal map[string]string
 	realToProxy map[string]string
 	ignoredReal map[string]ReplicaState
@@ -130,6 +132,8 @@ func (r *ReplicaSet) RegisterMetrics(registry *gangliamr.Registry) {
 
 // Start starts proxies to support this ReplicaSet.
 func (r *ReplicaSet) Start() error {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
 	r.proxyToReal = make(map[string]string)
 	r.realToProxy = make(map[string]string)
 	r.ignoredReal = make(map[string]ReplicaState)
@@ -207,25 +211,36 @@ func (r *ReplicaSet) generateState() error {
 
 func (r *ReplicaSet) attachProxies(healthyAddrs []string) error {
 	for _, addr := range healthyAddrs {
-		listener, err := r.newListener()
-		if err != nil {
-			return err
-		}
-
-		p := &Proxy{
-			Log:            r.Log,
-			ReplicaSet:     r,
-			ClientListener: listener,
-			ProxyAddr:      r.proxyAddr(listener),
-			Username:       r.Username,
-			Password:       r.Password,
-			MongoAddr:      addr,
-		}
-		if err := r.add(p); err != nil {
+		if _, err := r.AddProxy(addr); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (r *ReplicaSet) AddProxy(address string) (*Proxy, error) {
+	listener, err := r.newListener()
+	if err != nil {
+		return nil, err
+	}
+
+	p := &Proxy{
+		Log:            r.Log,
+		ReplicaSet:     r,
+		ClientListener: listener,
+		ProxyAddr:      r.proxyAddr(listener),
+		Username:       r.Username,
+		Password:       r.Password,
+		MongoAddr:      address,
+	}
+	if err := r.add(p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (r *ReplicaSet) RemoveProxy(proxy *Proxy) error {
+	return r.remove(proxy)
 }
 
 // Stop stops all the associated proxies for this ReplicaSet.
@@ -234,6 +249,8 @@ func (r *ReplicaSet) Stop() error {
 }
 
 func (r *ReplicaSet) stop(hard bool) error {
+	r.Mutex.RLock()
+	defer r.Mutex.RUnlock()
 	r.Stats.BumpSum("replica.stop", 1)
 	var wg sync.WaitGroup
 	wg.Add(len(r.proxies))
@@ -277,16 +294,6 @@ func (r *ReplicaSet) Restart() {
 
 		r.Log.Info("successfully restarted")
 	})
-}
-
-func (r *ReplicaSet) SyncProxies(newState *ReplicaSetState) {
-	// should use a sync.Once here
-
-	// get the set state diff
-	// wlock mappings
-	// for each missing/new thing; remove/add from our mappings
-	// replace lastState with newState
-	// stop now-dead proxies
 }
 
 func (r *ReplicaSet) proxyAddr(l net.Listener) string {

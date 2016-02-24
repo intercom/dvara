@@ -2,6 +2,7 @@ package dvara
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/facebookgo/subset"
@@ -149,22 +150,12 @@ func TestAddRemoveProxy(t *testing.T) {
 	}
 }
 
-func TestSyncProxies(t *testing.T) {
-	t.Parallel()
-	r := setupReplicaSet()
-	p := &Proxy{
-		ProxyAddr: "1",
-		MongoAddr: "2",
-	}
-
-	r.SyncProxies()
-}
-
 func setupReplicaSet() *ReplicaSet {
 	return &ReplicaSet{
 		Log:         nopLogger{},
 		proxyToReal: make(map[string]string),
 		realToProxy: make(map[string]string),
 		proxies:     make(map[string]*Proxy),
+		Mutex:       &sync.RWMutex{},
 	}
 }

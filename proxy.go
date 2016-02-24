@@ -111,22 +111,6 @@ func (p *Proxy) stop(hard bool) error {
 	return nil
 }
 
-func (p *Proxy) checkRSChanged() bool {
-	addrs := p.ReplicaSet.lastState.Addrs()
-	r, err := p.ReplicaSet.ReplicaSetStateCreator.FromAddrs(p.Username, p.Password, addrs, p.ReplicaSet.Name)
-	if err != nil {
-		p.Log.Errorf("all nodes possibly down?: %s", err)
-		return true
-	}
-
-	if err := r.AssertEqual(p.ReplicaSet.lastState); err != nil {
-		p.Log.Error(err)
-		return true
-	}
-
-	return false
-}
-
 func (p *Proxy) AuthConn(conn net.Conn) error {
 	socket := &mongoSocket{
 		conn: conn,
