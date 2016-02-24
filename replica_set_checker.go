@@ -18,6 +18,8 @@ type ReplicaSetComparison struct {
 }
 
 func (checker *ReplicaSetChecker) Check() error {
+	t := checker.replicaSet.Stats.BumpTime("replica.checker.time")
+	defer t.End()
 	addrs := strings.Split(checker.replicaSet.Addrs, ",")
 	r, err := checker.replicaSet.ReplicaSetStateCreator.FromAddrs(checker.replicaSet.Username, checker.replicaSet.Password, addrs, checker.replicaSet.Name)
 	if err != nil {
