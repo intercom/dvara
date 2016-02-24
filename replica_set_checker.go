@@ -32,9 +32,7 @@ func (checker *ReplicaSetChecker) Check() error {
 	if err = checker.addRemoveProxies(comparison); err != nil {
 		return err
 	}
-	if err = checker.stopStartProxies(comparison); err != nil {
-		return err
-	}
+	go checker.stopStartProxies(comparison)
 	return nil
 }
 
