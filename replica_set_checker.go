@@ -31,6 +31,8 @@ func (checker *ReplicaSetChecker) Run() {
 func (checker *ReplicaSetChecker) Check() error {
 	t := checker.ReplicaSet.Stats.BumpTime("replica.checker.time")
 	defer t.End()
+	checker.ReplicaSet.Mutex.Lock()
+	defer checker.ReplicaSet.Mutex.Unlock()
 	addrs := strings.Split(checker.ReplicaSet.Addrs, ",")
 	r, err := checker.ReplicaSet.ReplicaSetStateCreator.FromAddrs(checker.ReplicaSet.Username, checker.ReplicaSet.Password, addrs, checker.ReplicaSet.Name)
 	if err != nil {
@@ -46,8 +48,6 @@ func (checker *ReplicaSetChecker) Check() error {
 		return err
 	}
 
-	checker.ReplicaSet.Mutex.Lock()
-	defer checker.ReplicaSet.Mutex.Unlock()
 	if err = checker.addRemoveProxies(comparison); err != nil {
 		checker.ReplicaSet.Stats.BumpSum("replica.checker.failed_proxy_update", 1)
 		checker.Log.Errorf("Checker failed proxy update %s", err)
@@ -59,6 +59,8 @@ func (checker *ReplicaSetChecker) Check() error {
 		checker.Log.Errorf("Checker failed proxy start stop %s", err)
 		return err
 	}
+
+	checker.ReplicaSet.lastState = r
 	return nil
 }
 
