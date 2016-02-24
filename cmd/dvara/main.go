@@ -93,7 +93,12 @@ func Main() error {
 		HealthCheckInterval:        *healthCheckInterval,
 		FailedHealthCheckThreshold: *failedHealthCheckThreshold,
 	}
-	go hc.HealthCheck(&replicaSet)
+	replicaSetChecker := &dvara.ReplicaSetChecker{
+		Log:                 replicaSet.Log,
+		ReplicaSet:          &replicaSet,
+		ReplicaCheckTryChan: make(chan struct{}),
+	}
+	go hc.HealthCheck(&replicaSet, replicaSetChecker)
 	defer startstop.Stop(objects, &log)
 
 	ch := make(chan os.Signal, 2)

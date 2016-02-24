@@ -22,18 +22,18 @@ func TestCheckerFindsMissingExtraMembers(t *testing.T) {
 
 func TestCheckerAddsAndRemovesProxies(t *testing.T) {
 	checker := newChecker()
-	checker.replicaSet.AddProxy("mongoA")
-	checker.replicaSet.AddProxy("mongoB")
+	checker.ReplicaSet.AddProxy("mongoA")
+	checker.ReplicaSet.AddProxy("mongoB")
 
 	comparison, _ := checker.getComparison(getStatusResponse("mongoA", "mongoB"), getStatusResponse("mongoA", "mongoC"))
 	checker.addRemoveProxies(comparison)
-	if _, ok := checker.replicaSet.proxies[checker.replicaSet.realToProxy["mongoA"]]; !ok {
+	if _, ok := checker.ReplicaSet.proxies[checker.ReplicaSet.realToProxy["mongoA"]]; !ok {
 		t.Fatal("proxyA was removed")
 	}
-	if _, ok := checker.replicaSet.proxies[checker.replicaSet.realToProxy["mongoB"]]; ok {
+	if _, ok := checker.ReplicaSet.proxies[checker.ReplicaSet.realToProxy["mongoB"]]; ok {
 		t.Fatal("proxyB was not removed")
 	}
-	if _, ok := checker.replicaSet.proxies[checker.replicaSet.realToProxy["mongoC"]]; !ok {
+	if _, ok := checker.ReplicaSet.proxies[checker.ReplicaSet.realToProxy["mongoC"]]; !ok {
 		t.Fatal("proxyC was not added")
 	}
 }
@@ -41,7 +41,7 @@ func TestCheckerAddsAndRemovesProxies(t *testing.T) {
 func newChecker() *ReplicaSetChecker {
 	return &ReplicaSetChecker{
 		Log:        nopLogger{},
-		replicaSet: setupReplicaSet(),
+		ReplicaSet: setupReplicaSet(),
 	}
 }
 

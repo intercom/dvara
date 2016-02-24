@@ -31,7 +31,7 @@ func TestEnsureRestartIsCalled(t *testing.T) {
 		FailedHealthCheckThreshold: 2,
 	}
 
-	go hc.HealthCheck(&frs)
+	go hc.HealthCheck(&frs, nil)
 	time.Sleep(5 * time.Millisecond)
 	hc.Cancel = true
 
@@ -50,7 +50,7 @@ func TestEnsureRestartIsNotCalled(t *testing.T) {
 		FailedHealthCheckThreshold: 2,
 	}
 
-	go hc.HealthCheck(&frs)
+	go hc.HealthCheck(&frs, nil)
 	time.Sleep(5 * time.Millisecond)
 	hc.Cancel = true
 
