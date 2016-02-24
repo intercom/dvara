@@ -2,6 +2,7 @@ package dvara
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/facebookgo/subset"
@@ -75,12 +76,7 @@ func TestProxyNotInReplicaSet(t *testing.T) {
 
 func TestAddSameProxyToReplicaSet(t *testing.T) {
 	t.Parallel()
-	r := &ReplicaSet{
-		Log:         nopLogger{},
-		proxyToReal: make(map[string]string),
-		realToProxy: make(map[string]string),
-		proxies:     make(map[string]*Proxy),
-	}
+	r := setupReplicaSet()
 	p := &Proxy{
 		ProxyAddr: "1",
 		MongoAddr: "2",
@@ -97,12 +93,7 @@ func TestAddSameProxyToReplicaSet(t *testing.T) {
 
 func TestAddSameMongoToReplicaSet(t *testing.T) {
 	t.Parallel()
-	r := &ReplicaSet{
-		Log:         nopLogger{},
-		proxyToReal: make(map[string]string),
-		realToProxy: make(map[string]string),
-		proxies:     make(map[string]*Proxy),
-	}
+	r := setupReplicaSet()
 	p := &Proxy{
 		ProxyAddr: "1",
 		MongoAddr: "2",
@@ -138,5 +129,33 @@ func TestNewListenerError(t *testing.T) {
 	expected := "could not find a free port in range 1-1"
 	if err == nil || err.Error() != expected {
 		t.Fatalf("did not get expected error, got: %s", err)
+	}
+}
+
+func TestAddRemoveProxy(t *testing.T) {
+	t.Parallel()
+	r := setupReplicaSet()
+	p := &Proxy{
+		ProxyAddr: "1",
+		MongoAddr: "2",
+	}
+	if err := r.add(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.remove(p); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := r.proxies[p.ProxyAddr]; ok {
+		t.Fatal("failed to remove proxy")
+	}
+}
+
+func setupReplicaSet() *ReplicaSet {
+	return &ReplicaSet{
+		Log:         nopLogger{},
+		proxyToReal: make(map[string]string),
+		realToProxy: make(map[string]string),
+		proxies:     make(map[string]*Proxy),
+		Mutex:       &sync.RWMutex{},
 	}
 }
