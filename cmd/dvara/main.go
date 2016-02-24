@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -58,6 +59,7 @@ func Main() error {
 		ServerClosePoolSize:     *serverClosePoolSize,
 		ServerIdleTimeout:       *serverIdleTimeout,
 		Username:                *username,
+		Mutex:                   &sync.RWMutex{},
 	}
 
 	// Extra space in logger, as word boundary

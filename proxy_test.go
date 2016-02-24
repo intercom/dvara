@@ -3,6 +3,7 @@ package dvara
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/facebookgo/ensure"
@@ -281,7 +282,7 @@ func TestZeroMaxConnections(t *testing.T) {
 
 func TestNoAddrsGiven(t *testing.T) {
 	t.Parallel()
-	replicaSet := ReplicaSet{MaxConnections: 1}
+	replicaSet := ReplicaSet{MaxConnections: 1, Mutex: &sync.RWMutex{}}
 	var log nopLogger
 	var graph inject.Graph
 	err := graph.Provide(
@@ -305,6 +306,7 @@ func TestSingleNodeWhenExpectingRS(t *testing.T) {
 	replicaSet := ReplicaSet{
 		Addrs:          fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d", mgoserver.Port, mgoserver.Port+1),
 		MaxConnections: 1,
+		Mutex:          &sync.RWMutex{},
 	}
 	var log nopLogger
 	var graph inject.Graph
