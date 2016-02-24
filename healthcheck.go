@@ -18,14 +18,24 @@ type HealthChecker struct {
 	HealthCheckInterval        time.Duration
 	FailedHealthCheckThreshold uint
 	Cancel                     bool
+	replicaCheckTryChan        chan struct{}
 }
 
 func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector) {
 	ticker := time.NewTicker(checker.HealthCheckInterval)
 
+	checker.replicaCheckTryChan = make(chan struct{})
+	replicaSetChecker = &ReplicaSetChecker{
+		Log:                 r.Log,
+		replicaSet:          r,
+		replicaCheckTryChan: checker.replicaCheckTryChan,
+	}
+	go replicaSetChecker.Run()
+
 	for {
 		select {
 		case <-ticker.C:
+			checker.tryRunReplicaChecker()
 			err := checkable.Check()
 			if err != nil {
 				checker.consecutiveFailures++
@@ -40,6 +50,13 @@ func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector) {
 		if checker.Cancel {
 			return
 		}
+	}
+}
+
+func (checker *HealthChecker) tryRunReplicaChecker() {
+	select {
+	case checker.replicaCheckTryChan <- struct{}{}:
+	default:
 	}
 }
 
@@ -76,8 +93,6 @@ func (r *ReplicaSet) RestartIfFailed() {
 
 // Attemps to connect to Mongo through Dvara. Blocking call.
 func (r *ReplicaSet) runCheck(portStart int, errChan chan<- error) {
-	checker := &ReplicaSetChecker{Log: r.Log, replicaSet: r}
-	checker.Check()
 	// dvara opens a port per member of replica set, we don't expect to run more than 5 members in replica set
 	dvaraConnectionString := fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d", portStart, portStart+1, portStart+2, portStart+3, portStart+4)
 
