@@ -7,8 +7,8 @@ import (
 
 type ReplicaSetChecker struct {
 	Log                 Logger
-	replicaSet          *ReplicaSet
-	replicaCheckTryChan chan struct{}
+	ReplicaSet          *ReplicaSet
+	ReplicaCheckTryChan chan struct{}
 }
 
 type ReplicaSetComparison struct {
@@ -22,40 +22,40 @@ type ReplicaSetComparison struct {
 func (checker *ReplicaSetChecker) Run() {
 	for {
 		select {
-		case <-checker.replicaCheckTryChan:
+		case <-checker.ReplicaCheckTryChan:
 			checker.Check()
 		}
 	}
 }
 
 func (checker *ReplicaSetChecker) Check() error {
-	t := checker.replicaSet.Stats.BumpTime("replica.checker.time")
+	t := checker.ReplicaSet.Stats.BumpTime("replica.checker.time")
 	defer t.End()
-	addrs := strings.Split(checker.replicaSet.Addrs, ",")
-	r, err := checker.replicaSet.ReplicaSetStateCreator.FromAddrs(checker.replicaSet.Username, checker.replicaSet.Password, addrs, checker.replicaSet.Name)
+	addrs := strings.Split(checker.ReplicaSet.Addrs, ",")
+	r, err := checker.ReplicaSet.ReplicaSetStateCreator.FromAddrs(checker.ReplicaSet.Username, checker.ReplicaSet.Password, addrs, checker.ReplicaSet.Name)
 	if err != nil {
-		checker.replicaSet.Stats.BumpSum("replica.checker.failed_state_check", 1)
+		checker.ReplicaSet.Stats.BumpSum("replica.checker.failed_state_check", 1)
 		checker.Log.Errorf("all nodes possibly down?: %s", err)
 		return err
 	}
 
-	comparison, err := checker.getComparison(checker.replicaSet.lastState.lastRS, r.lastRS)
+	comparison, err := checker.getComparison(checker.ReplicaSet.lastState.lastRS, r.lastRS)
 	if err != nil {
-		checker.replicaSet.Stats.BumpSum("replica.checker.failed_comparison", 1)
+		checker.ReplicaSet.Stats.BumpSum("replica.checker.failed_comparison", 1)
 		checker.Log.Errorf("Checker failed comparison %s", err)
 		return err
 	}
 
-	checker.replicaSet.Mutex.Lock()
-	defer checker.replicaSet.Mutex.Unlock()
+	checker.ReplicaSet.Mutex.Lock()
+	defer checker.ReplicaSet.Mutex.Unlock()
 	if err = checker.addRemoveProxies(comparison); err != nil {
-		checker.replicaSet.Stats.BumpSum("replica.checker.failed_proxy_update", 1)
+		checker.ReplicaSet.Stats.BumpSum("replica.checker.failed_proxy_update", 1)
 		checker.Log.Errorf("Checker failed proxy update %s", err)
 		return err
 	}
 
 	if err = checker.stopStartProxies(comparison); err != nil {
-		checker.replicaSet.Stats.BumpSum("replica.checker.failed_proxy_start_stop", 1)
+		checker.ReplicaSet.Stats.BumpSum("replica.checker.failed_proxy_start_stop", 1)
 		checker.Log.Errorf("Checker failed proxy start stop %s", err)
 		return err
 	}
@@ -93,11 +93,11 @@ func (checker *ReplicaSetChecker) getComparison(oldResp, newResp *replSetGetStat
 
 func (checker *ReplicaSetChecker) addRemoveProxies(comparison *ReplicaSetComparison) error {
 	for _, proxy := range comparison.ExtraMembers {
-		checker.replicaSet.RemoveProxy(proxy)
+		checker.ReplicaSet.RemoveProxy(proxy)
 	}
 
 	for name, _ := range comparison.MissingMembers {
-		p, err := checker.replicaSet.AddProxy(name)
+		p, err := checker.ReplicaSet.AddProxy(name)
 		if err != nil {
 			return err
 		}
@@ -120,9 +120,9 @@ func (checker *ReplicaSetChecker) stopStartProxies(comparison *ReplicaSetCompari
 }
 
 func (checker *ReplicaSetChecker) findProxyForMember(member statusMember) *Proxy {
-	proxyName, ok := checker.replicaSet.realToProxy[member.Name]
+	proxyName, ok := checker.ReplicaSet.realToProxy[member.Name]
 	if !ok {
 		return nil
 	}
-	return checker.replicaSet.proxies[proxyName]
+	return checker.ReplicaSet.proxies[proxyName]
 }

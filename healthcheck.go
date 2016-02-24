@@ -21,16 +21,13 @@ type HealthChecker struct {
 	replicaCheckTryChan        chan struct{}
 }
 
-func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector) {
+func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector, replChecker *ReplicaSetChecker) {
 	ticker := time.NewTicker(checker.HealthCheckInterval)
 
-	checker.replicaCheckTryChan = make(chan struct{})
-	replicaSetChecker = &ReplicaSetChecker{
-		Log:                 r.Log,
-		replicaSet:          r,
-		replicaCheckTryChan: checker.replicaCheckTryChan,
+	if replChecker != nil {
+		checker.replicaCheckTryChan = replChecker.ReplicaCheckTryChan
+		go replChecker.Run()
 	}
-	go replicaSetChecker.Run()
 
 	for {
 		select {
