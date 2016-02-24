@@ -30,15 +30,24 @@ func (checker *ReplicaSetChecker) Check() error {
 
 	comparison, err := checker.getComparison(checker.replicaSet.lastState.lastRS, r.lastRS)
 	if err != nil {
+		checker.replicaSet.Stats.BumpSum("replica.checker.failed_comparison", 1)
+		checker.Log.Errorf("Checker failed comparison %s", err)
 		return err
 	}
 
 	checker.replicaSet.Mutex.Lock()
 	defer checker.replicaSet.Mutex.Unlock()
 	if err = checker.addRemoveProxies(comparison); err != nil {
+		checker.replicaSet.Stats.BumpSum("replica.checker.failed_proxy_update", 1)
+		checker.Log.Errorf("Checker failed proxy update %s", err)
 		return err
 	}
-	go checker.stopStartProxies(comparison)
+
+	if err = checker.stopStartProxies(comparison); err != nil {
+		checker.replicaSet.Stats.BumpSum("replica.checker.failed_proxy_start_stop", 1)
+		checker.Log.Errorf("Checker failed proxy start stop %s", err)
+		return err
+	}
 	return nil
 }
 
