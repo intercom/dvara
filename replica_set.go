@@ -178,6 +178,7 @@ func (r *ReplicaSet) generateState() error {
 	var err error
 	r.lastState, err = r.ReplicaSetStateCreator.FromAddrs(r.Username, r.Password, rawAddrs, r.Name)
 	if err != nil {
+		r.Stats.BumpSum("replica.start.failed_state_creation", 1)
 		return err
 	}
 

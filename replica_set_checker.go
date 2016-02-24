@@ -21,6 +21,7 @@ func (checker *ReplicaSetChecker) Check() error {
 	addrs := strings.Split(checker.replicaSet.Addrs, ",")
 	r, err := checker.replicaSet.ReplicaSetStateCreator.FromAddrs(checker.replicaSet.Username, checker.replicaSet.Password, addrs, checker.replicaSet.Name)
 	if err != nil {
+		checker.replicaSet.Stats.BumpSum("replica.checker.failed_state_check", 1)
 		checker.Log.Errorf("all nodes possibly down?: %s", err)
 		return err
 	}
