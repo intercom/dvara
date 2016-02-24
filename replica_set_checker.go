@@ -1,6 +1,9 @@
 package dvara
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 type ReplicaSetChecker struct {
 	Log        Logger
@@ -15,7 +18,7 @@ type ReplicaSetComparison struct {
 }
 
 func (checker *ReplicaSetChecker) Check() error {
-	addrs := checker.replicaSet.lastState.Addrs()
+	addrs := strings.Split(checker.replicaSet.Addrs, ",")
 	r, err := checker.replicaSet.ReplicaSetStateCreator.FromAddrs(checker.replicaSet.Username, checker.replicaSet.Password, addrs, checker.replicaSet.Name)
 	if err != nil {
 		checker.Log.Errorf("all nodes possibly down?: %s", err)
@@ -82,7 +85,7 @@ func (checker *ReplicaSetChecker) addRemoveProxies(comparison *ReplicaSetCompari
 
 func (checker *ReplicaSetChecker) stopStartProxies(comparison *ReplicaSetComparison) error {
 	for _, proxy := range comparison.ExtraMembers {
-		proxy.stop(false)
+		proxy.stop(true)
 	}
 
 	for _, p := range comparison.MissingMembers {
