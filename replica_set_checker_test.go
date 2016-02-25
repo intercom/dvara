@@ -27,13 +27,16 @@ func TestCheckerAddsAndRemovesProxies(t *testing.T) {
 
 	comparison, _ := checker.getComparison(getStatusResponse("mongoA", "mongoB"), getStatusResponse("mongoA", "mongoC"))
 	checker.addRemoveProxies(comparison)
-	if _, ok := checker.ReplicaSet.proxies[checker.ReplicaSet.realToProxy["mongoA"]]; !ok {
+	real, _ := checker.ReplicaSet.realToProxy.Get("mongoA")
+	if _, ok := checker.ReplicaSet.proxies[real.(string)]; !ok {
 		t.Fatal("proxyA was removed")
 	}
-	if _, ok := checker.ReplicaSet.proxies[checker.ReplicaSet.realToProxy["mongoB"]]; ok {
+
+	if _, ok := checker.ReplicaSet.realToProxy.Get("mongoB"); ok {
 		t.Fatal("proxyB was not removed")
 	}
-	if _, ok := checker.ReplicaSet.proxies[checker.ReplicaSet.realToProxy["mongoC"]]; !ok {
+
+	if _, ok := checker.ReplicaSet.realToProxy.Get("mongoC"); !ok {
 		t.Fatal("proxyC was not added")
 	}
 }

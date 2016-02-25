@@ -122,9 +122,9 @@ func (checker *ReplicaSetChecker) stopStartProxies(comparison *ReplicaSetCompari
 }
 
 func (checker *ReplicaSetChecker) findProxyForMember(member statusMember) *Proxy {
-	proxyName, ok := checker.ReplicaSet.realToProxy[member.Name]
+	proxyName, ok := checker.ReplicaSet.realToProxy.Get(member.Name)
 	if !ok {
 		return nil
 	}
-	return checker.ReplicaSet.proxies[proxyName]
+	return checker.ReplicaSet.proxies[proxyName.(string)]
 }

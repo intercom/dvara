@@ -14,6 +14,7 @@ import (
 	"github.com/facebookgo/metrics"
 	"github.com/facebookgo/stackerr"
 	"github.com/facebookgo/stats"
+	"github.com/streamrail/concurrent-map"
 )
 
 var hardRestart = flag.Bool(
@@ -110,8 +111,8 @@ type ReplicaSet struct {
 
 	Mutex *sync.RWMutex
 
-	proxyToReal map[string]string
-	realToProxy map[string]string
+	proxyToReal cmap.ConcurrentMap
+	realToProxy cmap.ConcurrentMap
 	ignoredReal map[string]ReplicaState
 	proxies     map[string]*Proxy
 	restarter   *sync.Once
@@ -134,8 +135,8 @@ func (r *ReplicaSet) RegisterMetrics(registry *gangliamr.Registry) {
 func (r *ReplicaSet) Start() error {
 	r.Mutex.Lock()
 	defer r.Mutex.Unlock()
-	r.proxyToReal = make(map[string]string)
-	r.realToProxy = make(map[string]string)
+	r.proxyToReal = cmap.New()
+	r.realToProxy = cmap.New()
 	r.ignoredReal = make(map[string]ReplicaState)
 	r.proxies = make(map[string]*Proxy)
 
@@ -201,7 +202,7 @@ func (r *ReplicaSet) generateState() error {
 	// add the ignored hosts, unless lastRS is nil (single node mode)
 	if r.lastState.lastRS != nil {
 		for _, member := range r.lastState.lastRS.Members {
-			if _, ok := r.realToProxy[member.Name]; !ok {
+			if _, ok := r.realToProxy.Get(member.Name); !ok {
 				r.ignoredReal[member.Name] = member.State
 			}
 		}
@@ -358,29 +359,29 @@ func (r *ReplicaSet) newListener() (net.Listener, error) {
 
 // add a proxy/mongo mapping.
 func (r *ReplicaSet) add(p *Proxy) error {
-	if _, ok := r.proxyToReal[p.ProxyAddr]; ok {
+	if _, ok := r.proxyToReal.Get(p.ProxyAddr); ok {
 		return fmt.Errorf("proxy %s already used in ReplicaSet", p.ProxyAddr)
 	}
-	if _, ok := r.realToProxy[p.MongoAddr]; ok {
+	if _, ok := r.realToProxy.Get(p.MongoAddr); ok {
 		return fmt.Errorf("mongo %s already exists in ReplicaSet", p.MongoAddr)
 	}
 	r.Log.Infof("added %s", p)
-	r.proxyToReal[p.ProxyAddr] = p.MongoAddr
-	r.realToProxy[p.MongoAddr] = p.ProxyAddr
+	r.proxyToReal.Set(p.ProxyAddr, p.MongoAddr)
+	r.realToProxy.Set(p.MongoAddr, p.ProxyAddr)
 	r.proxies[p.ProxyAddr] = p
 	return nil
 }
 
 func (r *ReplicaSet) remove(p *Proxy) error {
-	if _, ok := r.proxyToReal[p.ProxyAddr]; !ok {
+	if _, ok := r.proxyToReal.Get(p.ProxyAddr); !ok {
 		return fmt.Errorf("proxy %s does not exist in ReplicaSet", p.ProxyAddr)
 	}
-	if _, ok := r.realToProxy[p.MongoAddr]; !ok {
+	if _, ok := r.realToProxy.Get(p.MongoAddr); !ok {
 		return fmt.Errorf("mongo %s does not exist in ReplicaSet", p.MongoAddr)
 	}
 	r.Log.Infof("removed %s", p)
-	delete(r.proxyToReal, p.ProxyAddr)
-	delete(r.realToProxy, p.MongoAddr)
+	r.proxyToReal.Remove(p.ProxyAddr)
+	r.realToProxy.Remove(p.MongoAddr)
 	delete(r.proxies, p.ProxyAddr)
 	return nil
 }
@@ -388,7 +389,7 @@ func (r *ReplicaSet) remove(p *Proxy) error {
 // Proxy returns the corresponding proxy address for the given real mongo
 // address.
 func (r *ReplicaSet) Proxy(h string) (string, error) {
-	p, ok := r.realToProxy[h]
+	p, ok := r.realToProxy.Get(h)
 	if !ok {
 		if s, ok := r.ignoredReal[h]; ok {
 			return "", &ProxyMapperError{
@@ -398,14 +399,14 @@ func (r *ReplicaSet) Proxy(h string) (string, error) {
 		}
 		return "", fmt.Errorf("mongo %s is not in ReplicaSet", h)
 	}
-	return p, nil
+	return p.(string), nil
 }
 
 // ProxyMembers returns the list of proxy members in this ReplicaSet.
 func (r *ReplicaSet) ProxyMembers() []string {
 	members := make([]string, 0, len(r.proxyToReal))
-	for r := range r.proxyToReal {
-		members = append(members, r)
+	for r := range r.proxyToReal.Iter() {
+		members = append(members, r.Val.(string))
 	}
 	return members
 }

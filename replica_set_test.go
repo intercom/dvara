@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/facebookgo/subset"
+	"github.com/streamrail/concurrent-map"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -153,8 +154,8 @@ func TestAddRemoveProxy(t *testing.T) {
 func setupReplicaSet() *ReplicaSet {
 	return &ReplicaSet{
 		Log:         nopLogger{},
-		proxyToReal: make(map[string]string),
-		realToProxy: make(map[string]string),
+		proxyToReal: cmap.New(),
+		realToProxy: cmap.New(),
 		proxies:     make(map[string]*Proxy),
 		Mutex:       &sync.RWMutex{},
 	}
