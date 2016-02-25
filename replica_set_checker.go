@@ -113,24 +113,23 @@ func (checker *ReplicaSetChecker) addRemoveProxies(comparison *ReplicaSetCompari
 	return nil
 }
 
-func (checker *ReplicaSetChecker) stopStartProxies(comparison *ReplicaSetComparison) error {
+func (checker *ReplicaSetChecker) stopStartProxies(comparison *ReplicaSetComparison) {
 	t := checker.ReplicaSet.Stats.BumpTime("replica.checker.start_stop_proxies.time")
 	defer t.End()
 	checker.Log.Debugf("Starting stopStartProxies %s", comparison)
 	for _, proxy := range comparison.ExtraMembers {
 		checker.Log.Debugf("Stopping proxy %s", proxy)
 		if err := proxy.stop(true); err != nil {
-			return err
+			checker.Log.Errorf("Failed to stop proxy %s", proxy)
 		}
 	}
 
 	for _, proxy := range comparison.MissingMembers {
 		checker.Log.Debugf("Starting proxy %s", proxy)
 		if err := proxy.Start(); err != nil {
-			return err
+			checker.Log.Errorf("Failed to start proxy %s", proxy)
 		}
 	}
-	return nil
 }
 
 func (checker *ReplicaSetChecker) findProxyForMember(member statusMember) *Proxy {
