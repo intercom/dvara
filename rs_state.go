@@ -13,7 +13,8 @@ import (
 )
 
 const errNotReplSet = "not running with --replSet"
-const errNoReachableServers = "no reachable servers"
+
+var errNoReachableServers = errors.New("no reachable servers")
 
 // ReplicaSetState is a snapshot of the RS configuration at some point in time.
 type ReplicaSetState struct {
@@ -34,7 +35,7 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 	}
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
-		return nil, errors.New(errNoReachableServers)
+		return nil, errNoReachableServers
 	}
 	session.SetMode(mgo.Monotonic, true)
 	session.SetSyncTimeout(TIMEOUT)
@@ -129,7 +130,7 @@ func (c *ReplicaSetStateCreator) FromAddrs(username, password string, addrs []st
 	for _, addr := range addrs {
 		ar, err := NewReplicaSetState(username, password, addr)
 		if err != nil {
-			if err.Error() != errNoReachableServers {
+			if err != errNoReachableServers {
 				c.Log.Errorf("ignoring failure against address %s: %s", addr, err)
 			}
 			continue
