@@ -61,11 +61,8 @@ func (checker *ReplicaSetChecker) Check() error {
 		return err
 	}
 
-	if err = checker.stopStartProxies(comparison); err != nil {
-		checker.ReplicaSet.Stats.BumpSum("replica.checker.failed_proxy_start_stop", 1)
-		checker.Log.Errorf("Checker failed proxy start stop %s", err)
-		return err
-	}
+	// this is blocking, and can take time to start or stop a given proxy.
+	go checker.stopStartProxies(comparison)
 
 	checker.ReplicaSet.lastState = r
 	return nil
@@ -117,6 +114,8 @@ func (checker *ReplicaSetChecker) addRemoveProxies(comparison *ReplicaSetCompari
 }
 
 func (checker *ReplicaSetChecker) stopStartProxies(comparison *ReplicaSetComparison) error {
+	t := checker.ReplicaSet.Stats.BumpTime("replica.checker.start_stop_proxies.time")
+	defer t.End()
 	checker.Log.Debugf("Starting stopStartProxies %s", comparison)
 	for _, proxy := range comparison.ExtraMembers {
 		checker.Log.Debugf("Stopping proxy %s", proxy)
