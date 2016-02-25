@@ -1,6 +1,7 @@
 package dvara
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -12,6 +13,8 @@ import (
 )
 
 const errNotReplSet = "not running with --replSet"
+
+var errNoReachableServers = errors.New("no reachable servers")
 
 // ReplicaSetState is a snapshot of the RS configuration at some point in time.
 type ReplicaSetState struct {
@@ -32,7 +35,7 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 	}
 	session, err := mgo.DialWithInfo(info)
 	if err != nil {
-		return nil, err
+		return nil, errNoReachableServers
 	}
 	session.SetMode(mgo.Monotonic, true)
 	session.SetSyncTimeout(TIMEOUT)
@@ -127,7 +130,9 @@ func (c *ReplicaSetStateCreator) FromAddrs(username, password string, addrs []st
 	for _, addr := range addrs {
 		ar, err := NewReplicaSetState(username, password, addr)
 		if err != nil {
-			c.Log.Errorf("ignoring failure against address %s: %s", addr, err)
+			if err != errNoReachableServers {
+				c.Log.Errorf("ignoring failure against address %s: %s", addr, err)
+			}
 			continue
 		}
 
