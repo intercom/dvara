@@ -108,6 +108,8 @@ type ReplicaSet struct {
 
 	ClientsConnected metrics.Counter
 
+	Mutex *sync.RWMutex
+
 	proxyToReal map[string]string
 	realToProxy map[string]string
 	ignoredReal map[string]ReplicaState
@@ -130,6 +132,8 @@ func (r *ReplicaSet) RegisterMetrics(registry *gangliamr.Registry) {
 
 // Start starts proxies to support this ReplicaSet.
 func (r *ReplicaSet) Start() error {
+	r.Mutex.Lock()
+	defer r.Mutex.Unlock()
 	r.proxyToReal = make(map[string]string)
 	r.realToProxy = make(map[string]string)
 	r.ignoredReal = make(map[string]ReplicaState)
@@ -139,56 +143,14 @@ func (r *ReplicaSet) Start() error {
 		return errNoAddrsGiven
 	}
 
-	rawAddrs := strings.Split(r.Addrs, ",")
 	var err error
-	r.lastState, err = r.ReplicaSetStateCreator.FromAddrs(r.Username, r.Password, rawAddrs, r.Name)
-	if err != nil {
+	if err = r.generateState(); err != nil {
 		return err
 	}
 
-	healthyAddrs := r.lastState.Addrs()
-
-	// Ensure we have at least one health address.
-	if len(healthyAddrs) == 0 {
-		return stackerr.Newf("no healthy primaries or secondaries: %s", r.Addrs)
-	}
-
-	// Add discovered nodes to seed address list. Over time if the original seed
-	// nodes have gone away and new nodes have joined this ensures that we'll
-	// still be able to connect.
-	r.Addrs = strings.Join(uniq(append(rawAddrs, healthyAddrs...)), ",")
-
 	r.restarter = new(sync.Once)
 
-	for _, addr := range healthyAddrs {
-		listener, err := r.newListener()
-		if err != nil {
-			return err
-		}
-
-		p := &Proxy{
-			Log:            r.Log,
-			ReplicaSet:     r,
-			ClientListener: listener,
-			ProxyAddr:      r.proxyAddr(listener),
-			Username:       r.Username,
-			Password:       r.Password,
-			MongoAddr:      addr,
-		}
-		if err := r.add(p); err != nil {
-			return err
-		}
-	}
-
-	// add the ignored hosts, unless lastRS is nil (single node mode)
-	if r.lastState.lastRS != nil {
-		for _, member := range r.lastState.lastRS.Members {
-			if _, ok := r.realToProxy[member.Name]; !ok {
-				r.ignoredReal[member.Name] = member.State
-			}
-		}
-	}
-
+	// Start all the proxies
 	var wg sync.WaitGroup
 	wg.Add(len(r.proxies))
 	errch := make(chan error, len(r.proxies))
@@ -211,12 +173,85 @@ func (r *ReplicaSet) Start() error {
 	}
 }
 
+func (r *ReplicaSet) generateState() error {
+	rawAddrs := strings.Split(r.Addrs, ",")
+	var err error
+	r.lastState, err = r.ReplicaSetStateCreator.FromAddrs(r.Username, r.Password, rawAddrs, r.Name)
+	if err != nil {
+		r.Stats.BumpSum("replica.start.failed_state_creation", 1)
+		return err
+	}
+
+	healthyAddrs := r.lastState.Addrs()
+
+	// Ensure we have at least one health address.
+	if len(healthyAddrs) == 0 {
+		return stackerr.Newf("no healthy primaries or secondaries: %s", r.Addrs)
+	}
+
+	// Add discovered nodes to seed address list. Over time if the original seed
+	// nodes have gone away and new nodes have joined this ensures that we'll
+	// still be able to connect.
+	r.Addrs = strings.Join(uniq(append(rawAddrs, healthyAddrs...)), ",")
+
+	if err = r.attachProxies(healthyAddrs); err != nil {
+		return err
+	}
+
+	// add the ignored hosts, unless lastRS is nil (single node mode)
+	if r.lastState.lastRS != nil {
+		for _, member := range r.lastState.lastRS.Members {
+			if _, ok := r.realToProxy[member.Name]; !ok {
+				r.ignoredReal[member.Name] = member.State
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *ReplicaSet) attachProxies(healthyAddrs []string) error {
+	for _, addr := range healthyAddrs {
+		if _, err := r.AddProxy(addr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ReplicaSet) AddProxy(address string) (*Proxy, error) {
+	listener, err := r.newListener()
+	if err != nil {
+		return nil, err
+	}
+
+	p := &Proxy{
+		Log:            r.Log,
+		ReplicaSet:     r,
+		ClientListener: listener,
+		ProxyAddr:      r.proxyAddr(listener),
+		Username:       r.Username,
+		Password:       r.Password,
+		MongoAddr:      address,
+	}
+	if err := r.add(p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (r *ReplicaSet) RemoveProxy(proxy *Proxy) error {
+	return r.remove(proxy)
+}
+
 // Stop stops all the associated proxies for this ReplicaSet.
 func (r *ReplicaSet) Stop() error {
 	return r.stop(false)
 }
 
 func (r *ReplicaSet) stop(hard bool) error {
+	r.Mutex.RLock()
+	defer r.Mutex.RUnlock()
 	r.Stats.BumpSum("replica.stop", 1)
 	var wg sync.WaitGroup
 	wg.Add(len(r.proxies))
@@ -336,9 +371,25 @@ func (r *ReplicaSet) add(p *Proxy) error {
 	return nil
 }
 
+func (r *ReplicaSet) remove(p *Proxy) error {
+	if _, ok := r.proxyToReal[p.ProxyAddr]; !ok {
+		return fmt.Errorf("proxy %s does not exist in ReplicaSet", p.ProxyAddr)
+	}
+	if _, ok := r.realToProxy[p.MongoAddr]; !ok {
+		return fmt.Errorf("mongo %s does not exist in ReplicaSet", p.MongoAddr)
+	}
+	r.Log.Infof("removed %s", p)
+	delete(r.proxyToReal, p.ProxyAddr)
+	delete(r.realToProxy, p.MongoAddr)
+	delete(r.proxies, p.ProxyAddr)
+	return nil
+}
+
 // Proxy returns the corresponding proxy address for the given real mongo
 // address.
 func (r *ReplicaSet) Proxy(h string) (string, error) {
+	r.Mutex.RLock()
+	defer r.Mutex.RUnlock()
 	p, ok := r.realToProxy[h]
 	if !ok {
 		if s, ok := r.ignoredReal[h]; ok {
@@ -354,6 +405,8 @@ func (r *ReplicaSet) Proxy(h string) (string, error) {
 
 // ProxyMembers returns the list of proxy members in this ReplicaSet.
 func (r *ReplicaSet) ProxyMembers() []string {
+	r.Mutex.RLock()
+	defer r.Mutex.RUnlock()
 	members := make([]string, 0, len(r.proxyToReal))
 	for r := range r.proxyToReal {
 		members = append(members, r)

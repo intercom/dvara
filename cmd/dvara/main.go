@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -58,6 +59,7 @@ func Main() error {
 		ServerClosePoolSize:     *serverClosePoolSize,
 		ServerIdleTimeout:       *serverIdleTimeout,
 		Username:                *username,
+		Mutex:                   &sync.RWMutex{},
 	}
 
 	// Extra space in logger, as word boundary
@@ -91,7 +93,12 @@ func Main() error {
 		HealthCheckInterval:        *healthCheckInterval,
 		FailedHealthCheckThreshold: *failedHealthCheckThreshold,
 	}
-	go hc.HealthCheck(&replicaSet)
+	replicaSetChecker := &dvara.ReplicaSetChecker{
+		Log:                 replicaSet.Log,
+		ReplicaSet:          &replicaSet,
+		ReplicaCheckTryChan: make(chan struct{}),
+	}
+	go hc.HealthCheck(&replicaSet, replicaSetChecker)
 	defer startstop.Stop(objects, &log)
 
 	ch := make(chan os.Signal, 2)

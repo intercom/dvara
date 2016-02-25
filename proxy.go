@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/facebookgo/rpool"
 	"github.com/facebookgo/stats"
 )
 
@@ -37,7 +36,7 @@ type Proxy struct {
 
 	wg                      sync.WaitGroup
 	closed                  chan struct{}
-	serverPool              rpool.Pool
+	serverPool              Pool
 	stats                   stats.Client
 	maxPerClientConnections *maxPerClientConnections
 }
@@ -58,7 +57,7 @@ func (p *Proxy) Start() error {
 
 	p.closed = make(chan struct{})
 	p.maxPerClientConnections = newMaxPerClientConnections(p.ReplicaSet.MaxPerClientConnections)
-	p.serverPool = rpool.Pool{
+	p.serverPool = Pool{
 		New:               p.newServerConn,
 		CloseErrorHandler: p.serverCloseErrorHandler,
 		Max:               p.ReplicaSet.MaxConnections,
@@ -112,23 +111,6 @@ func (p *Proxy) stop(hard bool) error {
 	return nil
 }
 
-func (p *Proxy) checkRSChanged() bool {
-	addrs := p.ReplicaSet.lastState.Addrs()
-	r, err := p.ReplicaSet.ReplicaSetStateCreator.FromAddrs(p.Username, p.Password, addrs, p.ReplicaSet.Name)
-	if err != nil {
-		p.Log.Errorf("all nodes possibly down?: %s", err)
-		return true
-	}
-
-	if err := r.AssertEqual(p.ReplicaSet.lastState); err != nil {
-		p.Log.Error(err)
-		go p.ReplicaSet.Restart()
-		return true
-	}
-
-	return false
-}
-
 func (p *Proxy) AuthConn(conn net.Conn) error {
 	socket := &mongoSocket{
 		conn: conn,
@@ -158,10 +140,6 @@ func (p *Proxy) newServerConn() (io.Closer, error) {
 		}
 		p.Log.Error(err)
 
-		// abort if rs changed
-		if p.checkRSChanged() {
-			return nil, errNormalClose
-		}
 		time.Sleep(retrySleep)
 		retrySleep = retrySleep * 2
 	}
@@ -271,12 +249,10 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 	}
 
 	c = teeIf(fmt.Sprintf("client %s <=> %s", c.RemoteAddr(), p), c)
-	p.Log.Infof("client %s connected to %s", c.RemoteAddr(), p)
 	stats.BumpSum(p.stats, "client.connected", 1)
 	p.ReplicaSet.ClientsConnected.Inc(1)
 	defer func() {
 		p.ReplicaSet.ClientsConnected.Dec(1)
-		p.Log.Infof("client %s disconnected from %s", c.RemoteAddr(), p)
 		p.wg.Done()
 		if err := c.Close(); err != nil {
 			p.Log.Error(err)

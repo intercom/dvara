@@ -1,5 +1,5 @@
 // Package rpool provides a resource pool.
-package rpool
+package dvara
 
 import (
 	"container/list"
@@ -61,7 +61,8 @@ type Pool struct {
 
 // Acquire will pull a resource from the pool or create a new one if necessary.
 func (p *Pool) Acquire() (io.Closer, error) {
-	defer stats.BumpTime(p.Stats, "acquire.time").End()
+	elapsedTime := stats.BumpTime(p.Stats, "acquire.time")
+	defer elapsedTime.End()
 	p.manageOnce.Do(p.goManage)
 	r := make(chan io.Closer)
 	p.acquire <- r
@@ -124,7 +125,8 @@ func (p *Pool) Discard(c io.Closer) {
 // resources are released or discarded. It is an error to call Acquire after
 // closing the pool.
 func (p *Pool) Close() error {
-	defer stats.BumpTime(p.Stats, "shutdown.time").End()
+	elapsedTime := stats.BumpTime(p.Stats, "shutdown.time")
+	defer elapsedTime.End()
 	p.manageOnce.Do(p.goManage)
 	r := make(chan error)
 	p.close <- r

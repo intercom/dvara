@@ -3,6 +3,7 @@ package dvara
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gopkg.in/mgo.v2"
@@ -17,14 +18,21 @@ type HealthChecker struct {
 	HealthCheckInterval        time.Duration
 	FailedHealthCheckThreshold uint
 	Cancel                     bool
+	replicaCheckTryChan        chan struct{}
 }
 
-func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector) {
+func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector, replChecker *ReplicaSetChecker) {
 	ticker := time.NewTicker(checker.HealthCheckInterval)
+
+	if replChecker != nil {
+		checker.replicaCheckTryChan = replChecker.ReplicaCheckTryChan
+		go replChecker.Run()
+	}
 
 	for {
 		select {
 		case <-ticker.C:
+			checker.tryRunReplicaChecker()
 			err := checkable.Check()
 			if err != nil {
 				checker.consecutiveFailures++
@@ -39,6 +47,13 @@ func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector) {
 		if checker.Cancel {
 			return
 		}
+	}
+}
+
+func (checker *HealthChecker) tryRunReplicaChecker() {
+	select {
+	case checker.replicaCheckTryChan <- struct{}{}:
+	default:
 	}
 }
 
@@ -78,10 +93,17 @@ func (r *ReplicaSet) runCheck(portStart int, errChan chan<- error) {
 	// dvara opens a port per member of replica set, we don't expect to run more than 5 members in replica set
 	dvaraConnectionString := fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d", portStart, portStart+1, portStart+2, portStart+3, portStart+4)
 
-	session, err := mgo.DialWithTimeout(dvaraConnectionString, TIMEOUT)
+	info := &mgo.DialInfo{
+		Addrs:    strings.Split(dvaraConnectionString, ","),
+		FailFast: true,
+		// Without direct option, healthcheck fails in case there are only secondaries in the replica set
+		Direct: true,
+	}
+
+	session, err := mgo.DialWithInfo(info)
 	if err == nil {
 		defer session.Close()
-		session.SetMode(mgo.Monotonic, true)
+		session.SetMode(mgo.PrimaryPreferred, true)
 		_, isMasterErr := isMaster(session)
 		err = isMasterErr
 	}
