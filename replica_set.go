@@ -388,6 +388,8 @@ func (r *ReplicaSet) remove(p *Proxy) error {
 // Proxy returns the corresponding proxy address for the given real mongo
 // address.
 func (r *ReplicaSet) Proxy(h string) (string, error) {
+	r.Mutex.RLock()
+	defer r.Mutex.RUnlock()
 	p, ok := r.realToProxy[h]
 	if !ok {
 		if s, ok := r.ignoredReal[h]; ok {
@@ -403,6 +405,8 @@ func (r *ReplicaSet) Proxy(h string) (string, error) {
 
 // ProxyMembers returns the list of proxy members in this ReplicaSet.
 func (r *ReplicaSet) ProxyMembers() []string {
+	r.Mutex.RLock()
+	defer r.Mutex.RUnlock()
 	members := make([]string, 0, len(r.proxyToReal))
 	for r := range r.proxyToReal {
 		members = append(members, r)

@@ -29,15 +29,16 @@ func (checker *ReplicaSetChecker) Run() {
 }
 
 func (checker *ReplicaSetChecker) Check() error {
+	checker.Log.Debug("Starting checker")
 	t := checker.ReplicaSet.Stats.BumpTime("replica.checker.time")
 	defer t.End()
-	checker.ReplicaSet.Mutex.Lock()
-	defer checker.ReplicaSet.Mutex.Unlock()
+	checker.ReplicaSet.Mutex.RLock()
 	addrs := strings.Split(checker.ReplicaSet.Addrs, ",")
 	r, err := checker.ReplicaSet.ReplicaSetStateCreator.FromAddrs(checker.ReplicaSet.Username, checker.ReplicaSet.Password, addrs, checker.ReplicaSet.Name)
 	if err != nil {
 		checker.ReplicaSet.Stats.BumpSum("replica.checker.failed_state_check", 1)
 		checker.Log.Errorf("all nodes possibly down?: %s", err)
+		checker.ReplicaSet.Mutex.RUnlock()
 		return err
 	}
 
@@ -45,9 +46,15 @@ func (checker *ReplicaSetChecker) Check() error {
 	if err != nil {
 		checker.ReplicaSet.Stats.BumpSum("replica.checker.failed_comparison", 1)
 		checker.Log.Errorf("Checker failed comparison %s", err)
+		checker.ReplicaSet.Mutex.RUnlock()
 		return err
 	}
 
+	checker.ReplicaSet.Mutex.RUnlock()
+	lockedTime := checker.ReplicaSet.Stats.BumpTime("replica.checker.time.locked")
+	defer lockedTime.End()
+	checker.ReplicaSet.Mutex.Lock()
+	defer checker.ReplicaSet.Mutex.Unlock()
 	if err = checker.addRemoveProxies(comparison); err != nil {
 		checker.ReplicaSet.Stats.BumpSum("replica.checker.failed_proxy_update", 1)
 		checker.Log.Errorf("Checker failed proxy update %s", err)
@@ -94,6 +101,7 @@ func (checker *ReplicaSetChecker) getComparison(oldResp, newResp *replSetGetStat
 }
 
 func (checker *ReplicaSetChecker) addRemoveProxies(comparison *ReplicaSetComparison) error {
+	checker.Log.Debugf("Starting addRemoveProxies %s", comparison)
 	for _, proxy := range comparison.ExtraMembers {
 		checker.ReplicaSet.RemoveProxy(proxy)
 	}
@@ -109,12 +117,17 @@ func (checker *ReplicaSetChecker) addRemoveProxies(comparison *ReplicaSetCompari
 }
 
 func (checker *ReplicaSetChecker) stopStartProxies(comparison *ReplicaSetComparison) error {
+	checker.Log.Debugf("Starting stopStartProxies %s", comparison)
 	for _, proxy := range comparison.ExtraMembers {
-		proxy.stop(true)
+		checker.Log.Debugf("Stopping proxy %s", proxy)
+		if err := proxy.stop(true); err != nil {
+			return err
+		}
 	}
 
-	for _, p := range comparison.MissingMembers {
-		if err := p.Start(); err != nil {
+	for _, proxy := range comparison.MissingMembers {
+		checker.Log.Debugf("Starting proxy %s", proxy)
+		if err := proxy.Start(); err != nil {
 			return err
 		}
 	}
