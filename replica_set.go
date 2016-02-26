@@ -190,17 +190,6 @@ func (r *ReplicaSet) newListener() (net.Listener, error) {
 	)
 }
 
-// ProxyMapperError occurs when a known host is being ignored and does not have
-// a corresponding proxy address.
-type ProxyMapperError struct {
-	RealHost string
-	State    ReplicaState
-}
-
-func (p *ProxyMapperError) Error() string {
-	return fmt.Sprintf("error mapping host %s in state %s", p.RealHost, p.State)
-}
-
 // uniq takes a slice of strings and returns a new slice with duplicates
 // removed.
 func uniq(set []string) []string {
