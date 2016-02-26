@@ -86,6 +86,7 @@ func (r *ReplicaSet) Check() error {
 
 func (r *ReplicaSet) HandleFailure() {
 	r.Log.Error("Crashing dvara due to consecutive failed healthchecks")
+	r.Stats.BumpSum("healthcheck.failed.panic", 1)
 	panic("failed healthchecks")
 }
 

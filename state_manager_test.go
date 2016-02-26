@@ -152,8 +152,6 @@ func TestSingleNodeWhenExpectingRS(t *testing.T) {
 }
 
 func newManager() *StateManager {
-	//manager := NewStateManager(setupReplicaSet())
-	//manager.Start()
 	replicaSet := setupReplicaSet()
 	return newManagerWithReplicaSet(replicaSet)
 }

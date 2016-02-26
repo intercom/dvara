@@ -105,7 +105,12 @@ func (manager *StateManager) Synchronize() {
 
 	manager.stopStartProxies(comparison)
 	manager.currentReplicaSetState = newState
-	//manager.baseAddrs = manager.currentReplicaSetState.Addrs()
+
+	// Add discovered nodes to seed address list. Over time if the original seed
+	// nodes have gone away and new nodes have joined this ensures that we'll
+	// still be able to connect.
+	rawAddrs := strings.Split(manager.baseAddrs, ",")
+	manager.baseAddrs = strings.Join(uniq(append(rawAddrs, manager.currentReplicaSetState.Addrs()...)), ",")
 }
 
 func (manager *StateManager) ProxyMembers() []string {
