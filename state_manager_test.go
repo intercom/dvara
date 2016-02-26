@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/josler/mgotest"
+	"github.com/facebookgo/mgotest"
 )
 
 func TestManagerFindsMissingExtraMembers(t *testing.T) {

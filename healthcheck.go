@@ -9,9 +9,6 @@ import (
 	"gopkg.in/mgo.v2"
 )
 
-// health check timeout
-const TIMEOUT = 500 * time.Millisecond
-
 //HealthChecker -> Run health check to verify is dvara still connected to the replica set
 type HealthChecker struct {
 	consecutiveFailures        uint
@@ -32,7 +29,7 @@ func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector, syn
 		select {
 		case <-ticker.C:
 			checker.tryRunReplicaChecker()
-			err := checkable.Check()
+			err := checkable.Check(checker.HealthCheckInterval)
 			if err != nil {
 				checker.consecutiveFailures++
 			} else {
@@ -59,12 +56,12 @@ func (checker *HealthChecker) tryRunReplicaChecker() {
 }
 
 type CheckableMongoConnector interface {
-	Check() error
+	Check(timeout time.Duration) error
 	HandleFailure()
 }
 
 // Attemps to connect to Mongo through Dvara, with timeout.
-func (r *ReplicaSet) Check() error {
+func (r *ReplicaSet) Check(timeout time.Duration) error {
 	errChan := make(chan error)
 	go r.runCheck(r.PortStart, errChan)
 	// blocking wait
@@ -77,9 +74,9 @@ func (r *ReplicaSet) Check() error {
 			r.Stats.BumpSum("healthcheck.connected", 1)
 		}
 		return err
-	case <-time.After(TIMEOUT):
+	case <-time.After(timeout):
 		r.Stats.BumpSum("healthcheck.failed", 1)
-		r.Log.Errorf("Failed healthcheck due to timeout %s", TIMEOUT)
+		r.Log.Errorf("Failed healtcheck due to timeout %s", timeout)
 		return errors.New("Failed due to timeout")
 	}
 }
@@ -92,6 +89,8 @@ func (r *ReplicaSet) HandleFailure() {
 
 // Attemps to connect to Mongo through Dvara. Blocking call.
 func (r *ReplicaSet) runCheck(portStart int, errChan chan<- error) {
+	t := r.Stats.BumpTime("healthcheck.time")
+	t.End()
 	// dvara opens a port per member of replica set, we don't expect to run more than 5 members in replica set
 	dvaraConnectionString := fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d", portStart, portStart+1, portStart+2, portStart+3, portStart+4)
 
