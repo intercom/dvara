@@ -11,7 +11,7 @@ type FakeReplicaSet struct {
 	CheckReturnsError bool
 }
 
-func (frs *FakeReplicaSet) Check() error {
+func (frs *FakeReplicaSet) Check(timeout time.Duration) error {
 	if frs.CheckReturnsError {
 		return errors.New("Failed")
 	}
