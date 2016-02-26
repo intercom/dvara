@@ -289,9 +289,6 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 				if ne, ok := err.(net.Error); ok && ne.Timeout() {
 					stats.BumpSum(p.stats, "message.proxy.timeout", 1)
 				}
-				if err == errRSChanged {
-					go p.ReplicaSet.Restart()
-				}
 				return
 			}
 
