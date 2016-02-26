@@ -18,15 +18,14 @@ type HealthChecker struct {
 	HealthCheckInterval        time.Duration
 	FailedHealthCheckThreshold uint
 	Cancel                     bool
-	replicaCheckTryChan        chan struct{}
+	syncTryChan                chan<- struct{}
 }
 
-func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector, replChecker *ReplicaSetChecker) {
+func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector, syncTryChan chan<- struct{}) {
 	ticker := time.NewTicker(checker.HealthCheckInterval)
 
-	if replChecker != nil {
-		checker.replicaCheckTryChan = replChecker.ReplicaCheckTryChan
-		go replChecker.Run()
+	if syncTryChan != nil {
+		checker.syncTryChan = syncTryChan
 	}
 
 	for {
@@ -41,7 +40,7 @@ func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector, rep
 			}
 			if checker.consecutiveFailures >= checker.FailedHealthCheckThreshold {
 				checker.consecutiveFailures = 0
-				checkable.RestartIfFailed()
+				checkable.HandleFailure()
 			}
 		}
 		if checker.Cancel {
@@ -51,15 +50,17 @@ func (checker *HealthChecker) HealthCheck(checkable CheckableMongoConnector, rep
 }
 
 func (checker *HealthChecker) tryRunReplicaChecker() {
-	select {
-	case checker.replicaCheckTryChan <- struct{}{}:
-	default:
+	if checker.syncTryChan != nil {
+		select {
+		case checker.syncTryChan <- struct{}{}:
+		default:
+		}
 	}
 }
 
 type CheckableMongoConnector interface {
 	Check() error
-	RestartIfFailed()
+	HandleFailure()
 }
 
 // Attemps to connect to Mongo through Dvara, with timeout.
@@ -71,21 +72,22 @@ func (r *ReplicaSet) Check() error {
 	case err := <-errChan:
 		if err != nil {
 			r.Stats.BumpSum("healthcheck.failed", 1)
-			r.Log.Errorf("Failed healtcheck due to %s", err)
+			r.Log.Errorf("Failed healthcheck due to %s", err)
 		} else {
 			r.Stats.BumpSum("healthcheck.connected", 1)
 		}
 		return err
 	case <-time.After(TIMEOUT):
 		r.Stats.BumpSum("healthcheck.failed", 1)
-		r.Log.Errorf("Failed healtcheck due to timeout %s", TIMEOUT)
+		r.Log.Errorf("Failed healthcheck due to timeout %s", TIMEOUT)
 		return errors.New("Failed due to timeout")
 	}
 }
 
-func (r *ReplicaSet) RestartIfFailed() {
-	r.Log.Error("Restarting replica set due to consecutive failed healthchecks ")
-	go r.Restart()
+func (r *ReplicaSet) HandleFailure() {
+	r.Log.Error("Crashing dvara due to consecutive failed healthchecks")
+	r.Stats.BumpSum("healthcheck.failed.panic", 1)
+	panic("failed healthchecks")
 }
 
 // Attemps to connect to Mongo through Dvara. Blocking call.

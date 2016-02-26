@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -59,8 +58,8 @@ func Main() error {
 		ServerClosePoolSize:     *serverClosePoolSize,
 		ServerIdleTimeout:       *serverIdleTimeout,
 		Username:                *username,
-		Mutex:                   &sync.RWMutex{},
 	}
+	stateManager := dvara.NewStateManager(&replicaSet)
 
 	// Extra space in logger, as word boundary
 	log := stdLogger{*replicaName + " ", *verbose}
@@ -69,6 +68,7 @@ func Main() error {
 		&inject.Object{Value: &log},
 		&inject.Object{Value: &replicaSet},
 		&inject.Object{Value: &statsClient},
+		&inject.Object{Value: stateManager},
 	)
 	if err != nil {
 		return err
@@ -85,21 +85,20 @@ func Main() error {
 			rmO.RegisterMetrics(gregistry)
 		}
 	}
-	if err := startstop.Start(objects, &log); err != nil {
-		return err
-	}
 
 	hc := &dvara.HealthChecker{
 		HealthCheckInterval:        *healthCheckInterval,
 		FailedHealthCheckThreshold: *failedHealthCheckThreshold,
 	}
-	replicaSetChecker := &dvara.ReplicaSetChecker{
-		Log:                 replicaSet.Log,
-		ReplicaSet:          &replicaSet,
-		ReplicaCheckTryChan: make(chan struct{}),
+
+	if err := startstop.Start(objects, &log); err != nil {
+		return err
 	}
-	go hc.HealthCheck(&replicaSet, replicaSetChecker)
 	defer startstop.Stop(objects, &log)
+
+	syncChan := make(chan struct{})
+	go stateManager.KeepSynchronized(syncChan)
+	go hc.HealthCheck(&replicaSet, syncChan)
 
 	ch := make(chan os.Signal, 2)
 	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)
