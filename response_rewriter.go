@@ -348,13 +348,7 @@ func (r *IsMasterResponseRewriter) Rewrite(client io.Writer, server io.Reader) e
 	for _, h := range q.Hosts {
 		newH, err := r.ProxyMapper.Proxy(h)
 		if err != nil {
-			if _, ok := err.(*ProxyMapperError); ok {
-				// if there's an unknown host in the proxy map
-				// e.g. host unreachable or new host
-				continue
-			}
-			// unknown err
-			return err
+			continue
 		}
 		newHosts = append(newHosts, newH)
 	}
@@ -367,14 +361,7 @@ func (r *IsMasterResponseRewriter) Rewrite(client io.Writer, server io.Reader) e
 		for _, p := range passives {
 			newP, err := r.ProxyMapper.Proxy(p.(string))
 			if err != nil {
-				if pme, ok := err.(*ProxyMapperError); ok {
-					if pme.State != ReplicaStateArbiter {
-						r.Log.Errorf("dropping member %s in state %s", p, pme.State)
-					}
-					continue
-				}
-				// unknown err
-				return err
+				continue
 			}
 			newPassives = append(newPassives, newP)
 		}
@@ -430,13 +417,7 @@ func (r *ReplSetGetStatusResponseRewriter) Rewrite(client io.Writer, server io.R
 	for _, m := range q.Members {
 		newH, err := r.ProxyMapper.Proxy(m.Name)
 		if err != nil {
-			if _, ok := err.(*ProxyMapperError); ok {
-				// if there's an unknown host in the proxy map
-				// e.g. host unreachable or new host
-				continue
-			}
-			// unknown err
-			return err
+			continue
 		}
 		m.Name = newH
 		newMembers = append(newMembers, m)
