@@ -31,11 +31,6 @@ func NewStateManager(replicaSet *ReplicaSet) *StateManager {
 		realToProxy: make(map[string]string),
 		proxies:     make(map[string]*Proxy),
 	}
-	var err error
-	manager.currentReplicaSetState, err = manager.generateReplicaSetState()
-	if err != nil {
-		panic(errors.New("error starting statemanager, replicaset in flux"))
-	}
 	return manager
 }
 
@@ -43,6 +38,12 @@ func (manager *StateManager) Start() error {
 	manager.Log.Debug("starting manager")
 	manager.Lock()
 	defer manager.Unlock()
+	var err error
+	manager.currentReplicaSetState, err = manager.generateReplicaSetState()
+	if err != nil {
+		return err
+		return errors.New(fmt.Sprintf("error starting statemanager, replicaset in flux: %v", err))
+	}
 	healthyAddrs := manager.currentReplicaSetState.Addrs()
 
 	// Ensure we have at least one health address.
