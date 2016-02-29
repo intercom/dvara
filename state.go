@@ -12,4 +12,10 @@ const (
 
 	// ReplicaStateArbiter indicates the node is an arbiter.
 	ReplicaStateArbiter = ReplicaState("ARBITER")
+
+	// ReplicaStateRemoved indicates the node was removed from the ReplicaSet
+	ReplicaStateRemoved = ReplicaState("REMOVED")
+
+	// ReplicaStateStartup indicates the node is still starting up
+	ReplicaStateStartup = ReplicaState("STARTUP")
 )

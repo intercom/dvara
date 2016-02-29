@@ -15,6 +15,7 @@ import (
 const errNotReplSet = "not running with --replSet"
 
 var errNoReachableServers = errors.New("no reachable servers")
+var errRemovedReplica = errors.New("removed replica still present")
 
 // ReplicaSetState is a snapshot of the RS configuration at some point in time.
 type ReplicaSetState struct {
@@ -57,7 +58,10 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 
 	if r.lastRS != nil && len(r.lastRS.Members) == 1 {
 		n := r.lastRS.Members[0]
-		if n.State != "PRIMARY" || n.State != "SECONDARY" {
+		if n.State == ReplicaStateRemoved {
+			return nil, errRemovedReplica
+		}
+		if n.State != ReplicaStatePrimary || n.State != ReplicaStateSecondary {
 			return nil, fmt.Errorf("single node RS in bad state: %s", spew.Sdump(r))
 		}
 	}
@@ -65,7 +69,7 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 	// nodes starting up are invalid
 	if r.lastRS != nil {
 		for _, member := range r.lastRS.Members {
-			if member.Self && member.State == "STARTUP" {
+			if member.Self && member.State == ReplicaStateStartup {
 				return nil, fmt.Errorf("node is busy starting up: %s", member.Name)
 			}
 		}
