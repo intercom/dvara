@@ -189,76 +189,6 @@ func TestResponseRWWriteOne(t *testing.T) {
 	}
 }
 
-// func TestIsMasterResponseRewriterFailures(t *testing.T) {
-// 	t.Parallel()
-// 	cases := []struct {
-// 		Name        string
-// 		Client      io.Writer
-// 		Server      io.Reader
-// 		ProxyMapper ProxyMapper
-// 		Error       string
-// 	}{
-// 		{
-// 			Name:   "no header",
-// 			Server: bytes.NewReader(nil),
-// 			Error:  "EOF",
-// 		},
-// 		{
-// 			Name: "unknown host in 'hosts'",
-// 			Server: fakeSingleDocReply(
-// 				map[string]interface{}{
-// 					"hosts": []string{"foo"},
-// 				},
-// 			),
-// 			Error:       errProxyNotFound.Error(),
-// 			ProxyMapper: fakeProxyMapper{},
-// 		},
-// 		{
-// 			Name: "unknown host in 'primary'",
-// 			Server: fakeSingleDocReply(
-// 				map[string]interface{}{
-// 					"primary": "foo",
-// 				},
-// 			),
-// 			Error:       errProxyNotFound.Error(),
-// 			ProxyMapper: fakeProxyMapper{},
-// 		},
-// 		{
-// 			Name: "unknown host in 'me'",
-// 			Server: fakeSingleDocReply(
-// 				map[string]interface{}{
-// 					"me": "foo",
-// 				},
-// 			),
-// 			Error:       errProxyNotFound.Error(),
-// 			ProxyMapper: fakeProxyMapper{},
-// 		},
-// 		{
-// 			Name:        "different im",
-// 			Server:      fakeSingleDocReply(map[string]interface{}{}),
-// 			Error:       errRSChanged.Error(),
-// 			ProxyMapper: nil,
-// 		},
-// 	}
-//
-// 	for _, c := range cases {
-// 		r := &IsMasterResponseRewriter{
-// 			Log:         nopLogger{},
-// 			ProxyMapper: c.ProxyMapper,
-// 			ReplyRW: &ReplyRW{
-// 				Log: nopLogger{},
-// 			},
-// 		}
-// 		err := r.Rewrite(c.Client, c.Server)
-// 		if err == nil {
-// 			t.Errorf("was expecting an error for case %s", c.Name)
-// 		}
-// 		if !strings.Contains(err.Error(), c.Error) {
-// 			t.Errorf("did not get expected error for case %s instead got %s", c.Name, err)
-// 		}
-// 	}
-// }
-
 func TestIsMasterResponseRewriterSuccess(t *testing.T) {
 	proxyMapper := fakeProxyMapper{
 		m: map[string]string{
@@ -350,60 +280,6 @@ func TestIsMasterResponseRewriterSuccessWithPassives(t *testing.T) {
 		t.Fatal("did not get expected output")
 	}
 }
-
-// func TestReplSetGetStatusResponseRewriterFailures(t *testing.T) {
-// 	t.Parallel()
-// 	cases := []struct {
-// 		Name        string
-// 		Client      io.Writer
-// 		Server      io.Reader
-// 		ProxyMapper ProxyMapper
-// 		Error       string
-// 	}{
-// 		{
-// 			Name:   "no header",
-// 			Server: bytes.NewReader(nil),
-// 			Error:  "EOF",
-// 		},
-// 		{
-// 			Name: "unknown member name",
-// 			Server: fakeSingleDocReply(
-// 				map[string]interface{}{
-// 					"members": []map[string]interface{}{
-// 						map[string]interface{}{
-// 							"name": "foo",
-// 						},
-// 					},
-// 				},
-// 			),
-// 			Error:       errProxyNotFound.Error(),
-// 			ProxyMapper: fakeProxyMapper{},
-// 		},
-// 		{
-// 			Name:        "diffferent rs",
-// 			Server:      fakeSingleDocReply(map[string]interface{}{}),
-// 			Error:       errRSChanged.Error(),
-// 			ProxyMapper: nil,
-// 		},
-// 	}
-//
-// 	for _, c := range cases {
-// 		r := &ReplSetGetStatusResponseRewriter{
-// 			Log:         nopLogger{},
-// 			ProxyMapper: c.ProxyMapper,
-// 			ReplyRW: &ReplyRW{
-// 				Log: nopLogger{},
-// 			},
-// 		}
-// 		err := r.Rewrite(c.Client, c.Server)
-// 		if err == nil {
-// 			t.Errorf("was expecting an error for case %s", c.Name)
-// 		}
-// 		if !strings.Contains(err.Error(), c.Error) {
-// 			t.Errorf("did not get expected error for case %s instead got %s", c.Name, err)
-// 		}
-// 	}
-// }
 
 func TestReplSetGetStatusResponseRewriterSuccess(t *testing.T) {
 	proxyMapper := fakeProxyMapper{

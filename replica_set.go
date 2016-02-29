@@ -1,3 +1,4 @@
+// Dvara is a connection pool manager/proxy for MongoDB.
 package dvara
 
 import (

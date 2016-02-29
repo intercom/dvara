@@ -76,7 +76,7 @@ func (r *ReplicaSet) Check(timeout time.Duration) error {
 		return err
 	case <-time.After(timeout):
 		r.Stats.BumpSum("healthcheck.failed", 1)
-		r.Log.Errorf("Failed healthcheck due to timeout %s", TIMEOUT)
+		r.Log.Errorf("Failed healthcheck due to timeout %s", timeout)
 		return errors.New("Failed due to timeout")
 	}
 }
