@@ -105,8 +105,8 @@ func (r *ReplicaSet) runCheck(portStart int, errChan chan<- error) {
 	if err == nil {
 		defer session.Close()
 		session.SetMode(mgo.PrimaryPreferred, true)
-		_, isMasterErr := isMaster(session)
-		err = isMasterErr
+		_, replStatusErr := replSetGetStatus(session)
+		err = replStatusErr
 	}
 	select {
 	case errChan <- err:
