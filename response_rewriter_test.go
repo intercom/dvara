@@ -343,6 +343,31 @@ func TestReplSetGetStatusResponseRewriterSuccess(t *testing.T) {
 	}
 }
 
+func TestReplSetGetStatusResponseRewriterAuthFailure(t *testing.T) {
+	proxyMapper := fakeProxyMapper{
+		m: map[string]string{
+			"a": "1",
+			"b": "2",
+			"c": "3",
+		},
+	}
+	in := bson.M{
+		"code": 13,
+	}
+	r := &ReplSetGetStatusResponseRewriter{
+		Log:         nopLogger{},
+		ProxyMapper: proxyMapper,
+		ReplyRW: &ReplyRW{
+			Log: nopLogger{},
+		},
+	}
+
+	var client bytes.Buffer
+	if err := r.Rewrite(&client, fakeSingleDocReply(in)); err == nil {
+		t.Fatal("Rewrite did not fail, though authentication failed")
+	}
+}
+
 func TestProxyQuery(t *testing.T) {
 	t.Parallel()
 	var p ProxyQuery
