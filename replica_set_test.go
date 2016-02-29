@@ -1,7 +1,6 @@
 package dvara
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/facebookgo/subset"
@@ -9,30 +8,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
-
-func TestReplicaSetMembers(t *testing.T) {
-	t.Parallel()
-	h := NewReplicaSetHarness(3, t)
-	defer h.Stop()
-
-	proxyMembers := h.ReplicaSet.ProxyMembers()
-	session := h.ProxySession()
-	defer session.Close()
-	status, err := replSetGetStatus(session)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-outerProxyResponseCheckLoop:
-	for _, m := range status.Members {
-		for _, p := range proxyMembers {
-			if m.Name == p {
-				continue outerProxyResponseCheckLoop
-			}
-		}
-		t.Fatalf("Unexpected member: %s", m.Name)
-	}
-}
 
 func TestStopNodeInReplica(t *testing.T) {
 	t.Parallel()
@@ -61,66 +36,6 @@ func TestStopNodeInReplica(t *testing.T) {
 	subset.Assert(t, d, actual)
 }
 
-func TestProxyNotInReplicaSet(t *testing.T) {
-	t.Parallel()
-	h := NewSingleHarness(t)
-	defer h.Stop()
-	addr := "127.0.0.1:666"
-	expected := fmt.Sprintf("mongo %s is not in ReplicaSet", addr)
-	_, err := h.ReplicaSet.Proxy(addr)
-	if err == nil || err.Error() != expected {
-		t.Fatalf("did not get expected error, got: %s", err)
-	}
-}
-
-func TestAddSameProxyToReplicaSet(t *testing.T) {
-	t.Parallel()
-	r := &ReplicaSet{
-		Log:         nopLogger{},
-		proxyToReal: make(map[string]string),
-		realToProxy: make(map[string]string),
-		proxies:     make(map[string]*Proxy),
-	}
-	p := &Proxy{
-		ProxyAddr: "1",
-		MongoAddr: "2",
-	}
-	if err := r.add(p); err != nil {
-		t.Fatal(err)
-	}
-	expected := fmt.Sprintf("proxy %s already used in ReplicaSet", p.ProxyAddr)
-	err := r.add(p)
-	if err == nil || err.Error() != expected {
-		t.Fatalf("did not get expected error, got: %s", err)
-	}
-}
-
-func TestAddSameMongoToReplicaSet(t *testing.T) {
-	t.Parallel()
-	r := &ReplicaSet{
-		Log:         nopLogger{},
-		proxyToReal: make(map[string]string),
-		realToProxy: make(map[string]string),
-		proxies:     make(map[string]*Proxy),
-	}
-	p := &Proxy{
-		ProxyAddr: "1",
-		MongoAddr: "2",
-	}
-	if err := r.add(p); err != nil {
-		t.Fatal(err)
-	}
-	p = &Proxy{
-		ProxyAddr: "3",
-		MongoAddr: p.MongoAddr,
-	}
-	expected := fmt.Sprintf("mongo %s already exists in ReplicaSet", p.MongoAddr)
-	err := r.add(p)
-	if err == nil || err.Error() != expected {
-		t.Fatalf("did not get expected error, got: %s", err)
-	}
-}
-
 func TestNewListenerZeroZeroRandomPort(t *testing.T) {
 	t.Parallel()
 	r := &ReplicaSet{}
@@ -138,5 +53,21 @@ func TestNewListenerError(t *testing.T) {
 	expected := "could not find a free port in range 1-1"
 	if err == nil || err.Error() != expected {
 		t.Fatalf("did not get expected error, got: %s", err)
+	}
+}
+
+func TestNoAddrsGiven(t *testing.T) {
+	replicaSet := ReplicaSet{MaxConnections: 1}
+	err := replicaSet.Start()
+	if err != errNoAddrsGiven {
+		t.Fatalf("did not get expected error, got: %s", err)
+	}
+}
+
+func setupReplicaSet() *ReplicaSet {
+	log := nopLogger{}
+	return &ReplicaSet{
+		Log: log,
+		ReplicaSetStateCreator: &ReplicaSetStateCreator{Log: log},
 	}
 }

@@ -1,15 +1,9 @@
 package dvara
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/facebookgo/ensure"
-	"github.com/facebookgo/inject"
-	"github.com/facebookgo/mgotest"
-	"github.com/facebookgo/startstop"
-	"github.com/facebookgo/stats"
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -276,59 +270,6 @@ func TestZeroMaxConnections(t *testing.T) {
 	err := p.Start()
 	if err != errZeroMaxConnections {
 		t.Fatal("did not get expected error")
-	}
-}
-
-func TestNoAddrsGiven(t *testing.T) {
-	t.Parallel()
-	replicaSet := ReplicaSet{MaxConnections: 1}
-	var log nopLogger
-	var graph inject.Graph
-	err := graph.Provide(
-		&inject.Object{Value: &log},
-		&inject.Object{Value: &replicaSet},
-		&inject.Object{Value: &stats.HookClient{}},
-	)
-	ensure.Nil(t, err)
-	ensure.Nil(t, graph.Populate())
-	objects := graph.Objects()
-	err = startstop.Start(objects, &log)
-	if err != errNoAddrsGiven {
-		t.Fatalf("did not get expected error, got: %s", err)
-	}
-}
-
-func TestSingleNodeWhenExpectingRS(t *testing.T) {
-	t.Parallel()
-	mgoserver := mgotest.NewStartedServer(t)
-	defer mgoserver.Stop()
-	replicaSet := ReplicaSet{
-		Addrs:          fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d", mgoserver.Port, mgoserver.Port+1),
-		MaxConnections: 1,
-	}
-	var log nopLogger
-	var graph inject.Graph
-	err := graph.Provide(
-		&inject.Object{Value: &log},
-		&inject.Object{Value: &replicaSet},
-		&inject.Object{Value: &stats.HookClient{}},
-	)
-	ensure.Nil(t, err)
-	ensure.Nil(t, graph.Populate())
-	objects := graph.Objects()
-	err = startstop.Start(objects, &log)
-	if err == nil || !strings.Contains(err.Error(), "was expecting it to be in a replica set") {
-		t.Fatalf("did not get expected error, got: %s", err)
-	}
-}
-
-func TestStopListenerCloseError(t *testing.T) {
-	t.Parallel()
-	p := NewSingleHarness(t)
-	p.Stop()
-	err := p.ReplicaSet.Stop()
-	if err == nil || !strings.Contains(err.Error(), "use of closed network connection") {
-		t.Fatalf("did not get expected error, instead got: %s", err)
 	}
 }
 

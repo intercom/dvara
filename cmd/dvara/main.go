@@ -59,6 +59,7 @@ func Main() error {
 		ServerIdleTimeout:       *serverIdleTimeout,
 		Username:                *username,
 	}
+	stateManager := dvara.NewStateManager(&replicaSet)
 
 	// Extra space in logger, as word boundary
 	log := stdLogger{*replicaName + " ", *verbose}
@@ -67,6 +68,7 @@ func Main() error {
 		&inject.Object{Value: &log},
 		&inject.Object{Value: &replicaSet},
 		&inject.Object{Value: &statsClient},
+		&inject.Object{Value: stateManager},
 	)
 	if err != nil {
 		return err
@@ -83,16 +85,20 @@ func Main() error {
 			rmO.RegisterMetrics(gregistry)
 		}
 	}
-	if err := startstop.Start(objects, &log); err != nil {
-		return err
-	}
 
 	hc := &dvara.HealthChecker{
 		HealthCheckInterval:        *healthCheckInterval,
 		FailedHealthCheckThreshold: *failedHealthCheckThreshold,
 	}
-	go hc.HealthCheck(&replicaSet)
+
+	if err := startstop.Start(objects, &log); err != nil {
+		return err
+	}
 	defer startstop.Stop(objects, &log)
+
+	syncChan := make(chan struct{})
+	go stateManager.KeepSynchronized(syncChan)
+	go hc.HealthCheck(&replicaSet, syncChan)
 
 	ch := make(chan os.Signal, 2)
 	signal.Notify(ch, syscall.SIGTERM, syscall.SIGINT)

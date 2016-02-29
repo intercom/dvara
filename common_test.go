@@ -36,6 +36,7 @@ type Harness struct {
 	T          testing.TB
 	Stopper    stopper // This is either mgotest.Server or mgotest.ReplicaSet
 	ReplicaSet *ReplicaSet
+	Manager    *StateManager
 	Graph      *inject.Graph
 	Log        nopLogger
 }
@@ -55,11 +56,13 @@ func newHarnessInternal(url string, s stopper, t testing.TB) *Harness {
 		GetLastErrorTimeout:     5 * time.Minute,
 		MessageTimeout:          5 * time.Second,
 	}
+	manager := NewStateManager(&replicaSet)
 	var log nopLogger
 	var graph inject.Graph
 	err := graph.Provide(
 		&inject.Object{Value: &log},
 		&inject.Object{Value: &replicaSet},
+		&inject.Object{Value: manager},
 		&inject.Object{Value: &stats.HookClient{}},
 	)
 	ensure.Nil(t, err)
@@ -76,6 +79,7 @@ func newHarnessInternal(url string, s stopper, t testing.TB) *Harness {
 		T:          t,
 		Stopper:    s,
 		ReplicaSet: &replicaSet,
+		Manager:    manager,
 		Graph:      &graph,
 	}
 }
@@ -115,11 +119,11 @@ func (h *Harness) Stop() {
 }
 
 func (h *Harness) ProxySession() *mgo.Session {
-	return h.Dial(h.ReplicaSet.ProxyMembers()[0])
+	return h.Dial(h.Manager.ProxyMembers()[0])
 }
 
 func (h *Harness) RealSession() *mgo.Session {
-	return h.Dial(h.ReplicaSet.lastState.Addrs()[0])
+	return h.Dial(h.Manager.currentReplicaSetState.Addrs()[0])
 }
 
 func (h *Harness) Dial(u string) *mgo.Session {
