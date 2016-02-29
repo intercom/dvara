@@ -284,7 +284,7 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 			err := p.proxyMessage(h, c, serverConn, &lastError)
 			if err != nil {
 				p.serverPool.Discard(serverConn)
-				p.Log.Error(err)
+				p.Log.Errorf("Proxy message failed %s ", err)
 				stats.BumpSum(p.stats, "message.proxy.error", 1)
 				if ne, ok := err.(net.Error); ok && ne.Timeout() {
 					stats.BumpSum(p.stats, "message.proxy.timeout", 1)
