@@ -25,6 +25,9 @@ var (
 	cmdCollectionSuffix = []byte(".$cmd\000")
 )
 
+//https: //github.com/mongodb/mongo/blob/master/src/mongo/base/error_codes.err#L16
+const authErrorCode = 13
+
 // ProxyQuery proxies an OpQuery and a corresponding response.
 type ProxyQuery struct {
 	Log                              Logger                            `inject:""`
@@ -411,6 +414,11 @@ func (r *ReplSetGetStatusResponseRewriter) Rewrite(client io.Writer, server io.R
 	h, prefix, docLen, err := r.ReplyRW.ReadOne(server, &q)
 	if err != nil {
 		return err
+	}
+
+	code := q.Extra["code"]
+	if code == authErrorCode {
+		return fmt.Errorf("Authentication error, more info in %s", q.Extra)
 	}
 
 	var newMembers []statusMember
