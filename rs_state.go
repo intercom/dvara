@@ -19,9 +19,8 @@ var errRemovedReplica = errors.New("removed replica still present")
 
 // ReplicaSetState is a snapshot of the RS configuration at some point in time.
 type ReplicaSetState struct {
-	lastRS     *replSetGetStatusResponse
-	lastIM     *isMasterResponse
-	singleAddr string // this is only set when we're not running against a RS
+	lastRS *replSetGetStatusResponse
+	lastIM *isMasterResponse
 }
 
 // NewReplicaSetState creates a new ReplicaSetState using the given address.
@@ -45,11 +44,7 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 
 	var r ReplicaSetState
 	if r.lastRS, err = replSetGetStatus(session); err != nil {
-		// This error indicates we're in Single Node Mode. That's okay.
-		if err.Error() != errNotReplSet {
-			return nil, err
-		}
-		r.singleAddr = addr
+		return nil, err
 	}
 
 	if r.lastIM, err = isMaster(session); err != nil {
@@ -109,9 +104,6 @@ func (r *ReplicaSetState) SameIM(o *isMasterResponse) bool {
 
 // Addrs returns the addresses of members in primary or secondary state.
 func (r *ReplicaSetState) Addrs() []string {
-	if r.singleAddr != "" {
-		return []string{r.singleAddr}
-	}
 	var members []string
 	for _, m := range r.lastRS.Members {
 		if m.State == ReplicaStatePrimary || m.State == ReplicaStateSecondary {
@@ -174,16 +166,6 @@ func (c *ReplicaSetStateCreator) FromAddrs(username, password string, addrs []st
 
 	if r == nil {
 		return nil, fmt.Errorf("could not connect to any provided addresses: %v", addrs)
-	}
-
-	// Check if we're expecting an RS but got a single node.
-	if r.singleAddr != "" && len(addrs) != 1 {
-		return nil, fmt.Errorf(
-			"node %s is not in a replica set but was expecting it to be in a"+
-				" replica set with members %v",
-			r.singleAddr,
-			addrs,
-		)
 	}
 
 	return r, nil

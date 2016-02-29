@@ -247,19 +247,6 @@ func TestNotSameIMMembers(t *testing.T) {
 	}
 }
 
-func TestSingleNodeNewReplicaSetState(t *testing.T) {
-	t.Parallel()
-	mgo := mgotest.NewStartedServer(t)
-	defer mgo.Stop()
-	rs, err := NewReplicaSetState("", "", mgo.URL())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if rs.singleAddr != mgo.URL() {
-		t.Fatalf("expected %s got %s", mgo.URL(), rs.singleAddr)
-	}
-}
-
 func TestNewReplicaSetStateFailure(t *testing.T) {
 	t.Parallel()
 	mgo := mgotest.NewStartedServer(t)
