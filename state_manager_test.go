@@ -2,11 +2,8 @@ package dvara
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"testing"
-
-	"github.com/facebookgo/mgotest"
 )
 
 func TestManagerFindsMissingExtraMembers(t *testing.T) {
@@ -69,7 +66,7 @@ outerProxyResponseCheckLoop:
 
 func TestProxyNotInReplicaSet(t *testing.T) {
 	t.Parallel()
-	h := NewSingleHarness(t)
+	h := NewReplicaSetHarness(3, t)
 	defer h.Stop()
 	addr := "127.0.0.1:666"
 	expected := fmt.Sprintf("mongo %s is not in ReplicaSet", addr)
@@ -130,24 +127,6 @@ func TestAddRemoveProxy(t *testing.T) {
 	m.removeProxy(p)
 	if _, ok := m.proxies[p.ProxyAddr]; ok {
 		t.Fatal("failed to remove proxy")
-	}
-}
-
-func TestSingleNodeWhenExpectingRS(t *testing.T) {
-	t.Parallel()
-	mgoserver := mgotest.NewStartedServer(t)
-	defer mgoserver.Stop()
-	replicaSet := ReplicaSet{
-		Log:   nopLogger{},
-		Addrs: fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d", mgoserver.Port, mgoserver.Port+1),
-		ReplicaSetStateCreator: &ReplicaSetStateCreator{Log: nopLogger{}},
-		MaxConnections:         1,
-	}
-	manager := NewStateManager(&replicaSet)
-	manager.Log = replicaSet.Log
-	err := manager.Start()
-	if err == nil || !strings.Contains(err.Error(), "was expecting it to be in a replica set") {
-		t.Fatalf("did not get expected error, got: %s", err)
 	}
 }
 

@@ -14,7 +14,7 @@ func TestParallelInsertWithUniqueIndex(t *testing.T) {
 	if disableSlowTests {
 		t.Skip("TestParallelInsertWithUniqueIndex disabled because it's slow")
 	}
-	h := NewSingleHarness(t)
+	h := NewReplicaSetHarness(3, t)
 	defer h.Stop()
 
 	limit := 20000
@@ -46,7 +46,7 @@ func inserter(s *mgo.Session, channel chan int, limit int) {
 }
 func TestSimpleCRUD(t *testing.T) {
 	t.Parallel()
-	p := NewSingleHarness(t)
+	p := NewReplicaSetHarness(3, t)
 	defer p.Stop()
 	session := p.ProxySession()
 	defer session.Close()
@@ -80,7 +80,7 @@ func TestSimpleCRUD(t *testing.T) {
 // inserting data with same id field twice should fail
 func TestIDConstraint(t *testing.T) {
 	t.Parallel()
-	p := NewSingleHarness(t)
+	p := NewReplicaSetHarness(3, t)
 	defer p.Stop()
 	session := p.ProxySession()
 	defer session.Close()
@@ -102,7 +102,7 @@ func TestIDConstraint(t *testing.T) {
 // inserting data voilating index clause on a separate connection should fail
 func TestEnsureIndex(t *testing.T) {
 	t.Parallel()
-	p := NewSingleHarness(t)
+	p := NewReplicaSetHarness(3, t)
 	defer p.Stop()
 	session := p.ProxySession()
 	collection := session.DB("test").C("coll1")
@@ -140,7 +140,7 @@ func TestEnsureIndex(t *testing.T) {
 // inserting same data after dropping an index should work
 func TestDropIndex(t *testing.T) {
 	t.Parallel()
-	p := NewSingleHarness(t)
+	p := NewReplicaSetHarness(3, t)
 	defer p.Stop()
 	session := p.ProxySession()
 	collection := session.DB("test").C("coll1")
@@ -182,7 +182,7 @@ func TestDropIndex(t *testing.T) {
 
 func TestRemoval(t *testing.T) {
 	t.Parallel()
-	p := NewSingleHarness(t)
+	p := NewReplicaSetHarness(3, t)
 	defer p.Stop()
 	session := p.ProxySession()
 	defer session.Close()
@@ -205,7 +205,7 @@ func TestRemoval(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	t.Parallel()
-	p := NewSingleHarness(t)
+	p := NewReplicaSetHarness(3, t)
 	defer p.Stop()
 	session := p.ProxySession()
 	defer session.Close()
@@ -232,7 +232,7 @@ func TestUpdate(t *testing.T) {
 
 func TestStopChattyClient(t *testing.T) {
 	t.Parallel()
-	p := NewSingleHarness(t)
+	p := NewReplicaSetHarness(3, t)
 	session := p.ProxySession()
 	defer session.Close()
 	fin := make(chan struct{})
@@ -255,7 +255,7 @@ func TestStopChattyClient(t *testing.T) {
 
 func TestStopIdleClient(t *testing.T) {
 	t.Parallel()
-	p := NewSingleHarness(t)
+	p := NewReplicaSetHarness(3, t)
 	session := p.ProxySession()
 	defer session.Close()
 	if err := session.DB("test").C("col").Insert(bson.M{"v": 1}); err != nil {
@@ -318,11 +318,11 @@ func benchmarkInsertRead(b *testing.B, session *mgo.Session) {
 }
 
 func BenchmarkInsertReadProxy(b *testing.B) {
-	p := NewSingleHarness(b)
+	p := NewReplicaSetHarness(3, b)
 	benchmarkInsertRead(b, p.ProxySession())
 }
 
 func BenchmarkInsertReadDirect(b *testing.B) {
-	p := NewSingleHarness(b)
+	p := NewReplicaSetHarness(3, b)
 	benchmarkInsertRead(b, p.RealSession())
 }
