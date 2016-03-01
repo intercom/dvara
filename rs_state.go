@@ -64,7 +64,7 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 	// nodes starting up are invalid
 	if r.lastRS != nil {
 		for _, member := range r.lastRS.Members {
-			if member.Self && member.State == ReplicaStateStartup {
+			if member.Self && (member.State == ReplicaStateStartup || member.State == ReplicaStateStartup2 || member.State == ReplicaStateUnknown) {
 				return nil, fmt.Errorf("node is busy starting up: %s", member.Name)
 			}
 		}
