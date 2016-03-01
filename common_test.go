@@ -1,7 +1,6 @@
 package dvara
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -14,8 +13,6 @@ import (
 	"github.com/facebookgo/startstop"
 	"github.com/facebookgo/stats"
 )
-
-var disableSlowTests = os.Getenv("GO_RUN_LONG_TEST") == ""
 
 type nopLogger struct{}
 
@@ -103,9 +100,6 @@ type ReplicaSetHarness struct {
 }
 
 func NewReplicaSetHarness(n uint, t testing.TB) *ReplicaSetHarness {
-	if disableSlowTests {
-		t.Skip("disabled because it's slow")
-	}
 	mgoRS := mgotest.NewReplicaSet(n, t)
 	return &ReplicaSetHarness{
 		Harness:       newHarnessInternal(mgoRS.Addrs()[n-1], mgoRS, t),
