@@ -43,7 +43,7 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 	defer session.Close()
 
 	var r ReplicaSetState
-	if r.lastRS, err = replSetGetStatus(session); err != nil {
+	if r.lastRS, err = filterReplGetStatus(replSetGetStatus(session)); err != nil {
 		return nil, err
 	}
 
@@ -56,7 +56,7 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 		if n.State == ReplicaStateRemoved {
 			return nil, errRemovedReplica
 		}
-		if n.State != ReplicaStatePrimary || n.State != ReplicaStateSecondary {
+		if n.State != ReplicaStatePrimary && n.State != ReplicaStateSecondary {
 			return nil, fmt.Errorf("single node RS in bad state: %s", spew.Sdump(r))
 		}
 	}
@@ -179,6 +179,20 @@ var (
 		bson.DocElem{Name: "isMaster", Value: 1},
 	}
 )
+
+func filterReplGetStatus(r *replSetGetStatusResponse, e error) (*replSetGetStatusResponse, error) {
+	var validMembers []statusMember
+	if r != nil {
+		for _, element := range r.Members {
+			if element.State == ReplicaStatePrimary || element.State == ReplicaStateArbiter || element.State == ReplicaStateSecondary {
+				validMembers = append(validMembers, element)
+			}
+		}
+		r.Members = validMembers
+	}
+
+	return r, e
+}
 
 func replSetGetStatus(s *mgo.Session) (*replSetGetStatusResponse, error) {
 	var res replSetGetStatusResponse
