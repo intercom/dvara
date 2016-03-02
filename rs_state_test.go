@@ -6,6 +6,61 @@ import (
 	"github.com/facebookgo/mgotest"
 )
 
+func TestFilterRSStatus(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		Name string
+		A    *replSetGetStatusResponse
+		B    *replSetGetStatusResponse
+	}{
+		{
+			Name: "Only stable members",
+			A: &replSetGetStatusResponse{
+				Members: []statusMember{
+					{Name: "a", State: ReplicaStatePrimary},
+				},
+			},
+			B: &replSetGetStatusResponse{
+				Members: []statusMember{
+					{Name: "a", State: ReplicaStatePrimary},
+				},
+			},
+		},
+		{
+			Name: "Removing startup2 member",
+			A: &replSetGetStatusResponse{
+				Members: []statusMember{
+					{Name: "a", State: ReplicaStatePrimary},
+					{Name: "c", State: ReplicaStateStartup2},
+				},
+			},
+			B: &replSetGetStatusResponse{
+				Members: []statusMember{
+					{Name: "a", State: ReplicaStatePrimary},
+				},
+			},
+		},
+		{
+			Name: "both nil",
+		},
+		{
+			Name: "A nil B empty",
+			B:    &replSetGetStatusResponse{},
+		},
+		{
+			Name: "A empty B nil",
+			A:    &replSetGetStatusResponse{},
+		},
+	}
+
+	for _, c := range cases {
+		response, err := filterReplGetStatus(c.A, nil)
+		if !sameRSMembers(response, c.B) || err != nil {
+			t.Fatalf("failed %s with input %s response %s expected response %s", c.Name, c.A, response, c.B)
+		}
+	}
+}
+
 func TestSameRSMembers(t *testing.T) {
 	t.Parallel()
 	cases := []struct {

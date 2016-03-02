@@ -182,12 +182,14 @@ var (
 
 func filterReplGetStatus(r *replSetGetStatusResponse, e error) (*replSetGetStatusResponse, error) {
 	var validMembers []statusMember
-	for _, element := range r.Members {
-		if element.State == ReplicaStatePrimary || element.State == ReplicaStateArbiter || element.State == ReplicaStateSecondary {
-			validMembers = append(validMembers, element)
+	if r != nil {
+		for _, element := range r.Members {
+			if element.State == ReplicaStatePrimary || element.State == ReplicaStateArbiter || element.State == ReplicaStateSecondary {
+				validMembers = append(validMembers, element)
+			}
 		}
+		r.Members = validMembers
 	}
-	r.Members = validMembers
 
 	return r, e
 }
