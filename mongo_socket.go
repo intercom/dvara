@@ -124,7 +124,7 @@ func (socket *mongoSocket) Query(op *queryOp) (err error) {
 
 			m := bson.M{}
 			if err := bson.Unmarshal(b, m); err == nil {
-				fmt.Printf("Socket %p to %s: received document: %#v", socket, socket.addr, m)
+				fmt.Printf("Socket %p to %s: received document: %#v\n", socket, socket.addr, m)
 			}
 
 			if replyFunc != nil {
