@@ -88,7 +88,7 @@ func (socket *mongoSocket) getNonce() (nonce string, err error) {
 			socket.kill(errors.New("Failed to unmarshal nonce: "+err.Error()), true)
 			return
 		}
-		fmt.Println("Socket %p to %s: nonce unmarshalled: %#v", socket, socket.addr, result)
+		fmt.Printf("Socket %p to %s: nonce unmarshalled: %#v\n", socket, socket.addr, result)
 		if result.Code == 13390 {
 			// mongos doesn't yet support auth (see http://j.mp/mongos-auth)
 			result.Nonce = "mongos"
@@ -99,7 +99,7 @@ func (socket *mongoSocket) getNonce() (nonce string, err error) {
 			} else {
 				msg = "Got an empty nonce"
 			}
-			fmt.Printf(msg)
+			fmt.Println(msg)
 			err = errors.New(msg)
 			socket.kill(errors.New(msg), true)
 			return
