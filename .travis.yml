@@ -1,4 +1,4 @@
 language: go
 script: go test $(go list ./... | grep -v vendor/) -tags=integration
 go:
-  - 1.6
+  - 1.6.1
