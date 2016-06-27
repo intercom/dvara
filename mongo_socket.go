@@ -83,7 +83,6 @@ func (socket *mongoSocket) Query(op *queryOp) (err error) {
 	p := make([]byte, 36) // 16 from header + 20 from OP_REPLY fixed fields
 	fill(socket.conn, p)
 
-	fmt.Printf("%d", getInt32(p, 32))
 	reply := replyOp{
 		flags:     uint32(getInt32(p, 16)),
 		cursorId:  getInt64(p, 20),
