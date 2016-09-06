@@ -198,10 +198,11 @@ func TestIsMasterResponseRewriterSuccess(t *testing.T) {
 		},
 	}
 	in := bson.M{
-		"hosts":   []interface{}{"a", "b", "c"},
-		"me":      "a",
-		"primary": "b",
-		"foo":     "bar",
+		"hosts":    []interface{}{"a", "b", "c"},
+		"me":       "a",
+		"arbiters": []interface{}{"fooarbiter"},
+		"primary":  "b",
+		"foo":      "bar",
 	}
 	out := bson.M{
 		"hosts":   []interface{}{"1", "2", "3"},
