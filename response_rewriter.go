@@ -325,10 +325,11 @@ func (r *ReplyRW) WriteOne(client io.Writer, h *messageHeader, prefix replyPrefi
 }
 
 type isMasterResponse struct {
-	Hosts   []string `bson:"hosts,omitempty"`
-	Primary string   `bson:"primary,omitempty"`
-	Me      string   `bson:"me,omitempty"`
-	Extra   bson.M   `bson:",inline"`
+	Arbiters []string `bson:"arbiters,omitempty"`
+	Hosts    []string `bson:"hosts,omitempty"`
+	Primary  string   `bson:"primary,omitempty"`
+	Me       string   `bson:"me,omitempty"`
+	Extra    bson.M   `bson:",inline"`
 }
 
 // IsMasterResponseRewriter rewrites the response for the "isMaster" query.
@@ -347,9 +348,13 @@ func (r *IsMasterResponseRewriter) Rewrite(client io.Writer, server io.Reader) e
 		return err
 	}
 
+	// skip the arbiter host
+	q.Arbiters = []string{}
+
 	var newHosts []string
 	for _, h := range q.Hosts {
 		newH, err := r.ProxyMapper.Proxy(h)
+
 		if err != nil {
 			continue
 		}
