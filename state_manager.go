@@ -7,11 +7,11 @@ import (
 	"sync"
 
 	"github.com/facebookgo/stackerr"
+	corelog "github.com/intercom/gocore/log"
 )
 
 type StateManager struct {
 	*sync.RWMutex
-	Log                    Logger `inject:""`
 	replicaSet             *ReplicaSet
 	baseAddrs              string
 	currentReplicaSetState *ReplicaSetState
@@ -35,7 +35,7 @@ func NewStateManager(replicaSet *ReplicaSet) *StateManager {
 }
 
 func (manager *StateManager) Start() error {
-	manager.Log.Debug("starting manager")
+	corelog.LogInfoMessage("starting manager")
 	manager.Lock()
 	defer manager.Unlock()
 	var err error
@@ -78,7 +78,7 @@ func (manager *StateManager) Synchronize() {
 	newState, err := manager.generateReplicaSetState()
 	if err != nil {
 		manager.replicaSet.Stats.BumpSum("replica.manager.failed_state_check", 1)
-		manager.Log.Errorf("all nodes possibly down?: %s", err)
+		corelog.LogErrorMessage(fmt.Sprintf("all nodes possibly down?: %s", err))
 		manager.RUnlock()
 		return
 	}
@@ -86,7 +86,7 @@ func (manager *StateManager) Synchronize() {
 	comparison, err := manager.getComparison(manager.currentReplicaSetState.lastRS, newState.lastRS)
 	if err != nil {
 		manager.replicaSet.Stats.BumpSum("replica.manager.failed_comparison", 1)
-		manager.Log.Errorf("Manager failed comparison %s", err)
+		corelog.LogErrorMessage(fmt.Sprintf("Manager failed comparison %s", err))
 		manager.RUnlock()
 		return
 	}
@@ -99,7 +99,7 @@ func (manager *StateManager) Synchronize() {
 	defer manager.Unlock()
 	if err = manager.addRemoveProxies(comparison); err != nil {
 		manager.replicaSet.Stats.BumpSum("replica.manager.failed_proxy_update", 1)
-		manager.Log.Errorf("Manager failed proxy update %s", err)
+		corelog.LogErrorMessage(fmt.Sprintf("Manager failed proxy update %s", err))
 		return
 	}
 
@@ -164,7 +164,6 @@ func (manager *StateManager) generateProxies(addresses ...string) ([]*Proxy, err
 		}
 
 		p := &Proxy{
-			Log:            manager.replicaSet.Log,
 			ReplicaSet:     manager.replicaSet,
 			ClientListener: listener,
 			ProxyAddr:      manager.replicaSet.proxyAddr(listener),
@@ -214,7 +213,6 @@ func (manager *StateManager) getComparison(oldResp, newResp *replSetGetStatusRes
 }
 
 func (manager *StateManager) addRemoveProxies(comparison *ReplicaSetComparison) error {
-	manager.Log.Debugf("Starting addRemoveProxies %s", comparison)
 	for _, proxy := range comparison.ExtraMembers {
 		manager.removeProxy(proxy)
 	}
@@ -240,7 +238,7 @@ func (manager *StateManager) addProxy(proxy *Proxy) (*Proxy, error) {
 	if _, ok := manager.realToProxy[proxy.MongoAddr]; ok {
 		return nil, fmt.Errorf("mongo %s already exists in ReplicaSet", proxy.MongoAddr)
 	}
-	manager.Log.Infof("added %s", proxy)
+	corelog.LogInfoMessage(fmt.Sprintf("added %s", proxy))
 	manager.proxyToReal[proxy.ProxyAddr] = proxy.MongoAddr
 	manager.realToProxy[proxy.MongoAddr] = proxy.ProxyAddr
 	manager.proxies[proxy.ProxyAddr] = proxy
@@ -249,12 +247,12 @@ func (manager *StateManager) addProxy(proxy *Proxy) (*Proxy, error) {
 
 func (manager *StateManager) removeProxy(proxy *Proxy) {
 	if _, ok := manager.proxyToReal[proxy.ProxyAddr]; !ok {
-		manager.Log.Errorf("proxy %s does not exist in ReplicaSet", proxy.ProxyAddr)
+		corelog.LogErrorMessage(fmt.Sprintf("proxy %s does not exist in ReplicaSet", proxy.ProxyAddr))
 	}
 	if _, ok := manager.realToProxy[proxy.MongoAddr]; !ok {
-		manager.Log.Errorf("mongo %s does not exist in ReplicaSet", proxy.MongoAddr)
+		corelog.LogErrorMessage(fmt.Sprintf("mongo %s does not exist in ReplicaSet", proxy.ProxyAddr))
 	}
-	manager.Log.Infof("removed %s", proxy)
+	corelog.LogInfoMessage(fmt.Sprintf("removed %s", proxy))
 	delete(manager.proxyToReal, proxy.ProxyAddr)
 	delete(manager.realToProxy, proxy.MongoAddr)
 	delete(manager.proxies, proxy.ProxyAddr)
@@ -263,7 +261,6 @@ func (manager *StateManager) removeProxy(proxy *Proxy) {
 func (manager *StateManager) stopStartProxies(comparison *ReplicaSetComparison) {
 	t := manager.replicaSet.Stats.BumpTime("replica.manager.start_stop_proxies.time")
 	defer t.End()
-	manager.Log.Debugf("Starting stopStartProxies %s", comparison)
 	for _, proxy := range comparison.ExtraMembers {
 		go manager.stopProxy(proxy)
 	}
@@ -274,16 +271,14 @@ func (manager *StateManager) stopStartProxies(comparison *ReplicaSetComparison) 
 }
 
 func (manager *StateManager) startProxy(proxy *Proxy) {
-	manager.Log.Debugf("Starting proxy %s", proxy)
 	if err := proxy.Start(); err != nil {
-		manager.Log.Errorf("Failed to start proxy %s", proxy)
+		corelog.LogErrorMessage(fmt.Sprintf("Failed to start proxy %s", proxy))
 	}
 }
 
 func (manager *StateManager) stopProxy(proxy *Proxy) {
-	manager.Log.Debugf("Stopping proxy %s", proxy)
 	if err := proxy.stop(true); err != nil {
-		manager.Log.Errorf("Failed to stop proxy %s", proxy)
+		corelog.LogErrorMessage(fmt.Sprintf("Failed to stop proxy %s", proxy))
 	}
 }
 

@@ -14,16 +14,14 @@ import (
 	"github.com/facebookgo/stats"
 )
 
-type nopLogger struct{}
+type NoopLogger struct {
+}
 
-func (n nopLogger) Error(args ...interface{})                 {}
-func (n nopLogger) Errorf(format string, args ...interface{}) {}
-func (n nopLogger) Warn(args ...interface{})                  {}
-func (n nopLogger) Warnf(format string, args ...interface{})  {}
-func (n nopLogger) Info(args ...interface{})                  {}
-func (n nopLogger) Infof(format string, args ...interface{})  {}
-func (n nopLogger) Debug(args ...interface{})                 {}
-func (n nopLogger) Debugf(format string, args ...interface{}) {}
+func (l *NoopLogger) Debugf(f string, args ...interface{}) {
+}
+
+func (l *NoopLogger) Errorf(f string, args ...interface{}) {
+}
 
 type stopper interface {
 	Stop()
@@ -35,7 +33,7 @@ type Harness struct {
 	ReplicaSet *ReplicaSet
 	Manager    *StateManager
 	Graph      *inject.Graph
-	Log        nopLogger
+	Log        NoopLogger
 }
 
 func newHarnessInternal(url string, s stopper, t testing.TB) *Harness {
@@ -54,10 +52,8 @@ func newHarnessInternal(url string, s stopper, t testing.TB) *Harness {
 		MessageTimeout:          5 * time.Second,
 	}
 	manager := NewStateManager(&replicaSet)
-	var log nopLogger
 	var graph inject.Graph
 	err := graph.Provide(
-		&inject.Object{Value: &log},
 		&inject.Object{Value: &replicaSet},
 		&inject.Object{Value: manager},
 		&inject.Object{Value: &stats.HookClient{}},
@@ -71,6 +67,7 @@ func newHarnessInternal(url string, s stopper, t testing.TB) *Harness {
 			rmO.RegisterMetrics(gregistry)
 		}
 	}
+	log := NoopLogger{}
 	ensure.Nil(t, startstop.Start(objects, &log))
 	return &Harness{
 		T:          t,
@@ -78,6 +75,7 @@ func newHarnessInternal(url string, s stopper, t testing.TB) *Harness {
 		ReplicaSet: &replicaSet,
 		Manager:    manager,
 		Graph:      &graph,
+		Log:        log,
 	}
 }
 

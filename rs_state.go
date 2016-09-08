@@ -10,6 +10,8 @@ import (
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+
+	corelog "github.com/intercom/gocore/log"
 )
 
 const errNotReplSet = "not running with --replSet"
@@ -116,7 +118,6 @@ func (r *ReplicaSetState) Addrs() []string {
 // ReplicaSetStateCreator allows for creating a ReplicaSetState from a given
 // set of seed addresses.
 type ReplicaSetStateCreator struct {
-	Log Logger `inject:""`
 }
 
 // FromAddrs creates a ReplicaSetState from the given set of see addresses. It
@@ -127,27 +128,18 @@ func (c *ReplicaSetStateCreator) FromAddrs(username, password string, addrs []st
 		ar, err := NewReplicaSetState(username, password, addr)
 		if err != nil {
 			if err != errNoReachableServers {
-				c.Log.Errorf("ignoring failure against address %s: %s", addr, err)
+				corelog.LogErrorMessage(fmt.Sprintf("ignoring failure against address %s: %s", addr, err))
 			}
 			continue
 		}
 
 		if replicaSetName != "" {
 			if ar.lastRS == nil {
-				c.Log.Errorf(
-					"ignoring standalone node %q not in expected replset: %q",
-					addr,
-					replicaSetName,
-				)
+				corelog.LogErrorMessage(fmt.Sprintf("ignoring standalone node %q not in expected replset: %q", addr, replicaSetName))
 				continue
 			}
 			if ar.lastRS.Name != replicaSetName {
-				c.Log.Errorf(
-					"ignoring node %q not in expected replset: %q vs %q",
-					addr,
-					ar.lastRS.Name,
-					replicaSetName,
-				)
+				corelog.LogErrorMessage(fmt.Sprintf("ignoring node %q not in expected replset: %q vs %q", addr, ar.lastRS.Name, replicaSetName))
 				continue
 			}
 		}
