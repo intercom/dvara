@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/stats"
+	corelog "github.com/intercom/gocore/log"
 )
 
 const headerLen = 16
@@ -26,7 +27,6 @@ var (
 
 // Proxy sends stuff from clients to mongo servers.
 type Proxy struct {
-	Log            Logger
 	ReplicaSet     *ReplicaSet
 	ClientListener net.Listener // Listener for incoming client connections
 	Username       string       // Mongo user, if mongo uses auth
@@ -138,7 +138,7 @@ func (p *Proxy) newServerConn() (io.Closer, error) {
 				return c, nil
 			}
 		}
-		p.Log.Error(err)
+		corelog.LogError("error", err)
 
 		time.Sleep(retrySleep)
 		retrySleep = retrySleep * 2
@@ -156,7 +156,7 @@ func (p *Proxy) getServerConn() (net.Conn, error) {
 }
 
 func (p *Proxy) serverCloseErrorHandler(err error) {
-	p.Log.Error(err)
+	corelog.LogError("error", err)
 }
 
 // proxyMessage proxies a message, possibly it's response, and possibly a
@@ -167,8 +167,6 @@ func (p *Proxy) proxyMessage(
 	server net.Conn,
 	lastError *LastError,
 ) error {
-
-	p.Log.Debugf("proxying message %s from %s for %s", h, client.RemoteAddr(), p)
 	deadline := time.Now().Add(p.ReplicaSet.MessageTimeout)
 	server.SetDeadline(deadline)
 	client.SetDeadline(deadline)
@@ -183,18 +181,18 @@ func (p *Proxy) proxyMessage(
 	// Anything besides a getlasterror call (which requires an OpQuery) resets
 	// the lastError.
 	if lastError.Exists() {
-		p.Log.Debug("reset getLastError cache")
+		corelog.LogInfoMessage("reset getLastError cache")
 		lastError.Reset()
 	}
 
 	// For other Ops we proxy the header & raw body over.
 	if err := h.WriteTo(server); err != nil {
-		p.Log.Error(err)
+		corelog.LogError("error", err)
 		return err
 	}
 
 	if _, err := io.CopyN(server, client, int64(h.MessageLength-headerLen)); err != nil {
-		p.Log.Error(err)
+		corelog.LogError("error", err)
 		return err
 	}
 
@@ -202,7 +200,7 @@ func (p *Proxy) proxyMessage(
 	if h.OpCode.HasResponse() {
 		stats.BumpSum(p.stats, "message.with.response", 1)
 		if err := copyMessage(client, server); err != nil {
-			p.Log.Error(err)
+			corelog.LogError("error", err)
 			return err
 		}
 	}
@@ -221,7 +219,7 @@ func (p *Proxy) clientAcceptLoop() {
 			if strings.Contains(err.Error(), "use of closed network connection") {
 				break
 			}
-			p.Log.Error(err)
+			corelog.LogError("error", err)
 			continue
 		}
 		go p.clientServeLoop(c)
@@ -237,7 +235,7 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 	if p.maxPerClientConnections.inc(remoteIP) {
 		c.Close()
 		stats.BumpSum(p.stats, "client.rejected.max.connections", 1)
-		p.Log.Errorf("rejecting client connection due to max connections limit: %s", remoteIP)
+		corelog.LogErrorMessage(fmt.Sprintf("rejecting client connection due to max connections limit: %s", remoteIP))
 		return
 	}
 
@@ -255,7 +253,7 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 		p.ReplicaSet.ClientsConnected.Dec(1)
 		p.wg.Done()
 		if err := c.Close(); err != nil {
-			p.Log.Error(err)
+			corelog.LogError("error", err)
 		}
 		p.maxPerClientConnections.dec(remoteIP)
 	}()
@@ -265,7 +263,7 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 		h, err := p.idleClientReadHeader(c)
 		if err != nil {
 			if err != errNormalClose {
-				p.Log.Error(err)
+				corelog.LogError("error", err)
 			}
 			return
 		}
@@ -274,7 +272,7 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 		serverConn, err := p.getServerConn()
 		if err != nil {
 			if err != errNormalClose {
-				p.Log.Error(err)
+				corelog.LogError("error", err)
 			}
 			return
 		}
@@ -284,7 +282,7 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 			err := p.proxyMessage(h, c, serverConn, &lastError)
 			if err != nil {
 				p.serverPool.Discard(serverConn)
-				p.Log.Errorf("Proxy message failed %s ", err)
+				corelog.LogErrorMessage(fmt.Sprintf("Proxy message failed %s ", err))
 				stats.BumpSum(p.stats, "message.proxy.error", 1)
 				if ne, ok := err.(net.Error); ok && ne.Timeout() {
 					stats.BumpSum(p.stats, "message.proxy.timeout", 1)
@@ -313,7 +311,7 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 				}
 				// Prevent noise of normal client disconnects, but log if anything else.
 				if err != errNormalClose {
-					p.Log.Error(err)
+					corelog.LogError("error", err)
 				}
 				// We need to return our server to the pool (it's still good as far
 				// as we know).
@@ -398,7 +396,7 @@ func (p *Proxy) clientReadHeader(c net.Conn, timeout time.Duration) (*messageHea
 
 	// Some other unknown error.
 	stats.BumpSum(p.stats, "client.error.disconnect", 1)
-	p.Log.Error(response.error)
+	corelog.LogError("error", response.error)
 	return nil, response.error
 }
 

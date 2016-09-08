@@ -12,6 +12,7 @@ import (
 	"github.com/facebookgo/inject"
 	"github.com/facebookgo/startstop"
 	"github.com/intercom/dvara"
+	corelog "github.com/intercom/gocore/log"
 )
 
 func main() {
@@ -35,7 +36,6 @@ func Main() error {
 	serverClosePoolSize := flag.Uint("server_close_pool_size", 1, "number of goroutines that will handle closing server connections.")
 	serverIdleTimeout := flag.Duration("server_idle_timeout", 60*time.Minute, "duration after which a server connection will be considered idle")
 	username := flag.String("username", "", "mongo db username")
-	verbose := flag.Bool("verbose", false, "Be really verbose")
 	metricsAddress := flag.String("metrics", "127.0.0.1:8125", "UDP address to send metrics to datadog, default is 127.0.0.1:8125")
 	replicaName := flag.String("replica_name", "", "Replica name, used in metrics and logging, default is empty")
 	healthCheckInterval := flag.Duration("healthcheckinterval", 5*time.Second, "How often to run the health check")
@@ -61,11 +61,16 @@ func Main() error {
 	}
 	stateManager := dvara.NewStateManager(&replicaSet)
 
-	// Extra space in logger, as word boundary
-	log := stdLogger{*replicaName + " ", *verbose}
+	// Actual logger
+	corelog.SetupLogFmtLoggerTo(os.Stderr)
+	corelog.SetStandardFields("replicaset", *replicaName)
+	corelog.UseTimestamp(true)
+
+	// Wrapper for inject
+	log := Logger{}
+
 	var graph inject.Graph
 	err := graph.Provide(
-		&inject.Object{Value: &log},
 		&inject.Object{Value: &replicaSet},
 		&inject.Object{Value: &statsClient},
 		&inject.Object{Value: stateManager},

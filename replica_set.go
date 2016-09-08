@@ -14,6 +14,7 @@ import (
 	"github.com/facebookgo/gangliamr"
 	"github.com/facebookgo/metrics"
 	"github.com/facebookgo/stats"
+	corelog "github.com/intercom/gocore/log"
 )
 
 var hardRestart = flag.Bool(
@@ -21,18 +22,6 @@ var hardRestart = flag.Bool(
 	true,
 	"if true will drop clients on restart",
 )
-
-// Logger allows for simple text logging.
-type Logger interface {
-	Error(args ...interface{})
-	Errorf(format string, args ...interface{})
-	Warn(args ...interface{})
-	Warnf(format string, args ...interface{})
-	Info(args ...interface{})
-	Infof(format string, args ...interface{})
-	Debug(args ...interface{})
-	Debugf(format string, args ...interface{})
-}
 
 var errNoAddrsGiven = errors.New("dvara: no seed addresses given for ReplicaSet")
 
@@ -42,7 +31,6 @@ var errNoAddrsGiven = errors.New("dvara: no seed addresses given for ReplicaSet"
 // they are reachable. That is, if two of the addresses are members of
 // different replica sets, it will be considered an error.
 type ReplicaSet struct {
-	Log                    Logger                  `inject:""`
 	ReplicaSetStateCreator *ReplicaSetStateCreator `inject:""`
 	ProxyQuery             *ProxyQuery             `inject:""`
 
@@ -146,7 +134,7 @@ func (r *ReplicaSet) proxyHostname() string {
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		r.Log.Error(err)
+		corelog.LogError("error", err)
 		return home
 	}
 
@@ -154,13 +142,13 @@ func (r *ReplicaSet) proxyHostname() string {
 	// If it doesn't we don't use it since it probably wont work anyways.
 	hostnameAddrs, err := net.LookupHost(hostname)
 	if err != nil {
-		r.Log.Error(err)
+		corelog.LogError("error", err)
 		return home
 	}
 
 	interfaceAddrs, err := net.InterfaceAddrs()
 	if err != nil {
-		r.Log.Error(err)
+		corelog.LogError("error", err)
 		return home
 	}
 
@@ -173,7 +161,7 @@ func (r *ReplicaSet) proxyHostname() string {
 			}
 		}
 	}
-	r.Log.Warnf("hostname %s doesn't resolve to the current host", hostname)
+	corelog.LogInfoMessage(fmt.Sprintf("hostname %s doesn't resolve to the current host", hostname))
 	return home
 }
 

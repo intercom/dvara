@@ -137,7 +137,6 @@ func newManager() *StateManager {
 
 func newManagerWithReplicaSet(replicaSet *ReplicaSet) *StateManager {
 	return &StateManager{
-		Log:         replicaSet.Log,
 		RWMutex:     &sync.RWMutex{},
 		replicaSet:  replicaSet,
 		baseAddrs:   replicaSet.Addrs,

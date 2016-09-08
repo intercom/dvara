@@ -9,8 +9,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
-
+	corelog "github.com/intercom/gocore/log"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -30,7 +29,6 @@ const authErrorCode = 13
 
 // ProxyQuery proxies an OpQuery and a corresponding response.
 type ProxyQuery struct {
-	Log                              Logger                            `inject:""`
 	GetLastErrorRewriter             *GetLastErrorRewriter             `inject:""`
 	IsMasterResponseRewriter         *IsMasterResponseRewriter         `inject:""`
 	ReplSetGetStatusResponseRewriter *ReplSetGetStatusResponseRewriter `inject:""`
@@ -54,14 +52,14 @@ func (p *ProxyQuery) Proxy(
 
 	var flags [4]byte
 	if _, err := io.ReadFull(client, flags[:]); err != nil {
-		p.Log.Error(err)
+		corelog.LogError("error", err)
 		return err
 	}
 	parts = append(parts, flags[:])
 
 	fullCollectionName, err := readCString(client)
 	if err != nil {
-		p.Log.Error(err)
+		corelog.LogError("error", err)
 		return err
 	}
 	parts = append(parts, fullCollectionName)
@@ -70,29 +68,23 @@ func (p *ProxyQuery) Proxy(
 	if *proxyAllQueries || bytes.HasSuffix(fullCollectionName, cmdCollectionSuffix) {
 		var twoInt32 [8]byte
 		if _, err := io.ReadFull(client, twoInt32[:]); err != nil {
-			p.Log.Error(err)
+			corelog.LogError("error", err)
 			return err
 		}
 		parts = append(parts, twoInt32[:])
 
 		queryDoc, err := readDocument(client)
 		if err != nil {
-			p.Log.Error(err)
+			corelog.LogError("error", err)
 			return err
 		}
 		parts = append(parts, queryDoc)
 
 		var q bson.D
 		if err := bson.Unmarshal(queryDoc, &q); err != nil {
-			p.Log.Error(err)
+			corelog.LogError("error", err)
 			return err
 		}
-
-		p.Log.Debugf(
-			"buffered OpQuery for %s: %s",
-			fullCollectionName[:len(fullCollectionName)-1],
-			spew.Sdump(q),
-		)
 
 		if hasKey(q, "getLastError") {
 			return p.GetLastErrorRewriter.Rewrite(
@@ -119,7 +111,7 @@ func (p *ProxyQuery) Proxy(
 	}
 
 	if resetLastError && lastError.Exists() {
-		p.Log.Debug("reset getLastError cache")
+		corelog.LogInfoMessage("reset getLastError cache")
 		lastError.Reset()
 	}
 
@@ -127,7 +119,7 @@ func (p *ProxyQuery) Proxy(
 	for _, b := range parts {
 		n, err := server.Write(b)
 		if err != nil {
-			p.Log.Error(err)
+			corelog.LogError("error", err)
 			return err
 		}
 		written += n
@@ -135,7 +127,7 @@ func (p *ProxyQuery) Proxy(
 
 	pending := int64(h.MessageLength) - int64(written)
 	if _, err := io.CopyN(server, client, pending); err != nil {
-		p.Log.Error(err)
+		corelog.LogError("error", err)
 		return err
 	}
 
@@ -147,7 +139,7 @@ func (p *ProxyQuery) Proxy(
 	}
 
 	if err := copyMessage(client, server); err != nil {
-		p.Log.Error(err)
+		corelog.LogError("error", err)
 		return err
 	}
 
@@ -174,7 +166,6 @@ func (l *LastError) Reset() {
 // GetLastErrorRewriter handles getLastError requests and proxies, caches or
 // sends cached responses as necessary.
 type GetLastErrorRewriter struct {
-	Log Logger `inject:""`
 }
 
 // Rewrite handles getLastError requests.
@@ -193,7 +184,7 @@ func (r *GetLastErrorRewriter) Rewrite(
 		for _, b := range parts {
 			n, err := server.Write(b)
 			if err != nil {
-				r.Log.Error(err)
+				corelog.LogError("error", err)
 				return err
 			}
 			written += n
@@ -201,21 +192,21 @@ func (r *GetLastErrorRewriter) Rewrite(
 
 		pending := int64(h.MessageLength) - int64(written)
 		if _, err := io.CopyN(server, client, pending); err != nil {
-			r.Log.Error(err)
+			corelog.LogError("error", err)
 			return err
 		}
 
 		var err error
 		if lastError.header, err = readHeader(server); err != nil {
-			r.Log.Error(err)
+			corelog.LogError("error", err)
 			return err
 		}
 		pending = int64(lastError.header.MessageLength - headerLen)
 		if _, err = io.CopyN(&lastError.rest, server, pending); err != nil {
-			r.Log.Error(err)
+			corelog.LogError("error", err)
 			return err
 		}
-		r.Log.Debugf("caching new getLastError response: %s", lastError.rest.Bytes())
+		corelog.LogInfoMessage(fmt.Sprintf("caching new getLastError response: %s", lastError.rest.Bytes()))
 	} else {
 		// We need to discard the pending bytes from the client from the query
 		// before we send it our cached response.
@@ -225,20 +216,20 @@ func (r *GetLastErrorRewriter) Rewrite(
 		}
 		pending := int64(h.MessageLength) - int64(written)
 		if _, err := io.CopyN(ioutil.Discard, client, pending); err != nil {
-			r.Log.Error(err)
+			corelog.LogError("error", err)
 			return err
 		}
 		// Modify and send the cached response for this request.
 		lastError.header.ResponseTo = h.RequestID
-		r.Log.Debugf("using cached getLastError response: %s", lastError.rest.Bytes())
+		corelog.LogInfoMessage("using cached getLastError response: %s", lastError.rest.Bytes())
 	}
 
 	if err := lastError.header.WriteTo(client); err != nil {
-		r.Log.Error(err)
+		corelog.LogError("error", err)
 		return err
 	}
 	if _, err := client.Write(lastError.rest.Bytes()); err != nil {
-		r.Log.Error(err)
+		corelog.LogError("error", err)
 		return err
 	}
 
@@ -263,7 +254,6 @@ var emptyPrefix replyPrefix
 
 // ReplyRW provides common helpers for rewriting replies from the server.
 type ReplyRW struct {
-	Log Logger `inject:""`
 }
 
 // ReadOne reads a 1 document response, from the server, unmarshals it into v
@@ -271,7 +261,7 @@ type ReplyRW struct {
 func (r *ReplyRW) ReadOne(server io.Reader, v interface{}) (*messageHeader, replyPrefix, int32, error) {
 	h, err := readHeader(server)
 	if err != nil {
-		r.Log.Error(err)
+		corelog.LogError("error", err)
 		return nil, emptyPrefix, 0, err
 	}
 
@@ -282,7 +272,7 @@ func (r *ReplyRW) ReadOne(server io.Reader, v interface{}) (*messageHeader, repl
 
 	var prefix replyPrefix
 	if _, err := io.ReadFull(server, prefix[:]); err != nil {
-		r.Log.Error(err)
+		corelog.LogError("error", err)
 		return nil, emptyPrefix, 0, err
 	}
 
@@ -294,12 +284,12 @@ func (r *ReplyRW) ReadOne(server io.Reader, v interface{}) (*messageHeader, repl
 
 	rawDoc, err := readDocument(server)
 	if err != nil {
-		r.Log.Error(err)
+		corelog.LogError("error", err)
 		return nil, emptyPrefix, 0, err
 	}
 
 	if err := bson.Unmarshal(rawDoc, v); err != nil {
-		r.Log.Error(err)
+		corelog.LogError("error", err)
 		return nil, emptyPrefix, 0, err
 	}
 
@@ -334,7 +324,6 @@ type isMasterResponse struct {
 
 // IsMasterResponseRewriter rewrites the response for the "isMaster" query.
 type IsMasterResponseRewriter struct {
-	Log         Logger      `inject:""`
 	ProxyMapper ProxyMapper `inject:""`
 	ReplyRW     *ReplyRW    `inject:""`
 }
@@ -407,7 +396,6 @@ type replSetGetStatusResponse struct {
 
 // ReplSetGetStatusResponseRewriter rewrites the "replSetGetStatus" response.
 type ReplSetGetStatusResponseRewriter struct {
-	Log         Logger      `inject:""`
 	ProxyMapper ProxyMapper `inject:""`
 	ReplyRW     *ReplyRW    `inject:""`
 }

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"gopkg.in/mgo.v2"
+
+	corelog "github.com/intercom/gocore/log"
 )
 
 //HealthChecker -> Run health check to verify is dvara still connected to the replica set
@@ -69,20 +71,20 @@ func (r *ReplicaSet) Check(timeout time.Duration) error {
 	case err := <-errChan:
 		if err != nil {
 			r.Stats.BumpSum("healthcheck.failed", 1)
-			r.Log.Errorf("Failed healthcheck due to %s", err)
+			corelog.LogErrorMessage(fmt.Sprintf("Failed healthcheck due to %s", err))
 		} else {
 			r.Stats.BumpSum("healthcheck.connected", 1)
 		}
 		return err
 	case <-time.After(timeout):
 		r.Stats.BumpSum("healthcheck.failed", 1)
-		r.Log.Errorf("Failed healthcheck due to timeout %s", timeout)
+		corelog.LogErrorMessage(fmt.Sprintf("Failed healthcheck due to timeout %s", timeout))
 		return errors.New("Failed due to timeout")
 	}
 }
 
 func (r *ReplicaSet) HandleFailure() {
-	r.Log.Error("Crashing dvara due to consecutive failed healthchecks")
+	corelog.LogErrorMessage("Crashing dvara due to consecutive failed healthchecks")
 	r.Stats.BumpSum("healthcheck.failed.panic", 1)
 	panic("failed healthchecks")
 }

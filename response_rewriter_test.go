@@ -136,7 +136,7 @@ func TestResponseRWReadOne(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		r := &ReplyRW{Log: nopLogger{}}
+		r := &ReplyRW{}
 		m := bson.M{}
 		_, _, _, err := r.ReadOne(c.Server, m)
 		if err == nil {
@@ -178,7 +178,7 @@ func TestResponseRWWriteOne(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		r := &ReplyRW{Log: nopLogger{}}
+		r := &ReplyRW{}
 		err := r.WriteOne(c.Client, &c.Header, c.Prefix, c.DocLen, c.Value)
 		if err == nil {
 			t.Errorf("was expecting an error for case %s", c.Name)
@@ -212,11 +212,8 @@ func TestIsMasterResponseRewriterSuccess(t *testing.T) {
 	}
 
 	r := &IsMasterResponseRewriter{
-		Log:         nopLogger{},
 		ProxyMapper: proxyMapper,
-		ReplyRW: &ReplyRW{
-			Log: nopLogger{},
-		},
+		ReplyRW:     &ReplyRW{},
 	}
 
 	var client bytes.Buffer
@@ -259,11 +256,8 @@ func TestIsMasterResponseRewriterSuccessWithPassives(t *testing.T) {
 	}
 
 	r := &IsMasterResponseRewriter{
-		Log:         nopLogger{},
 		ProxyMapper: proxyMapper,
-		ReplyRW: &ReplyRW{
-			Log: nopLogger{},
-		},
+		ReplyRW:     &ReplyRW{},
 	}
 
 	var client bytes.Buffer
@@ -321,11 +315,8 @@ func TestReplSetGetStatusResponseRewriterSuccess(t *testing.T) {
 		},
 	}
 	r := &ReplSetGetStatusResponseRewriter{
-		Log:         nopLogger{},
 		ProxyMapper: proxyMapper,
-		ReplyRW: &ReplyRW{
-			Log: nopLogger{},
-		},
+		ReplyRW:     &ReplyRW{},
 	}
 
 	var client bytes.Buffer
@@ -356,11 +347,8 @@ func TestReplSetGetStatusResponseRewriterAuthFailure(t *testing.T) {
 		"code": 13,
 	}
 	r := &ReplSetGetStatusResponseRewriter{
-		Log:         nopLogger{},
 		ProxyMapper: proxyMapper,
-		ReplyRW: &ReplyRW{
-			Log: nopLogger{},
-		},
+		ReplyRW:     &ReplyRW{},
 	}
 
 	var client bytes.Buffer
@@ -372,11 +360,10 @@ func TestReplSetGetStatusResponseRewriterAuthFailure(t *testing.T) {
 func TestProxyQuery(t *testing.T) {
 	t.Parallel()
 	var p ProxyQuery
-	var log nopLogger
+	var log NoopLogger
 	var graph inject.Graph
 	err := graph.Provide(
 		&inject.Object{Value: &fakeProxyMapper{}},
-		&inject.Object{Value: &log},
 		&inject.Object{Value: &p},
 	)
 	ensure.Nil(t, err)

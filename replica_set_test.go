@@ -65,9 +65,7 @@ func TestNoAddrsGiven(t *testing.T) {
 }
 
 func setupReplicaSet() *ReplicaSet {
-	log := nopLogger{}
 	return &ReplicaSet{
-		Log: log,
-		ReplicaSetStateCreator: &ReplicaSetStateCreator{Log: log},
+		ReplicaSetStateCreator: &ReplicaSetStateCreator{},
 	}
 }
