@@ -16,7 +16,7 @@ cd src/github.com/intercom/dvara
 go install cmd/dvara
 ```
 
-### Testing that it works
+### Testing that it boots
 ```bash
 ssh <machine-hostname>
 cd /home/ec2-user/src/github.com/intercom/dvara
