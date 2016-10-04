@@ -128,7 +128,7 @@ func (p *Proxy) AuthConn(conn net.Conn) error {
 func (p *Proxy) newServerConn() (io.Closer, error) {
 	retrySleep := 50 * time.Millisecond
 	for retryCount := 7; retryCount > 0; retryCount-- {
-		c, err := net.Dial("tcp", p.MongoAddr)
+		c, err := net.DialTimeout("tcp", p.MongoAddr, time.Second)
 		if err == nil {
 			if len(p.Username) == 0 {
 				return c, nil
