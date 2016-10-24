@@ -11,8 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/facebookgo/gangliamr"
-	"github.com/facebookgo/metrics"
 	"github.com/facebookgo/stats"
 	corelog "github.com/intercom/gocore/log"
 )
@@ -94,21 +92,7 @@ type ReplicaSet struct {
 	// Password is the password used to connect to the server for retrieving replica state.
 	Password string
 
-	ClientsConnected metrics.Counter
-
 	restarter *sync.Once
-}
-
-// RegisterMetrics registers the available metrics.
-func (r *ReplicaSet) RegisterMetrics(registry *gangliamr.Registry) {
-	gangliaGroup := []string{"dvara"}
-	r.ClientsConnected = &gangliamr.Counter{
-		Name:   "clients_connected",
-		Title:  "Client Connected",
-		Units:  "conn",
-		Groups: gangliaGroup,
-	}
-	registry.Register(r.ClientsConnected)
 }
 
 func (r *ReplicaSet) Start() error {

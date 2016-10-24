@@ -7,7 +7,6 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/facebookgo/ensure"
-	"github.com/facebookgo/gangliamr"
 	"github.com/facebookgo/inject"
 	"github.com/facebookgo/mgotest"
 	"github.com/facebookgo/startstop"
@@ -61,12 +60,6 @@ func newHarnessInternal(url string, s stopper, t testing.TB) *Harness {
 	ensure.Nil(t, err)
 	ensure.Nil(t, graph.Populate())
 	objects := graph.Objects()
-	gregistry := gangliamr.NewTestRegistry()
-	for _, o := range objects {
-		if rmO, ok := o.Value.(registerMetrics); ok {
-			rmO.RegisterMetrics(gregistry)
-		}
-	}
 	log := NoopLogger{}
 	ensure.Nil(t, startstop.Start(objects, &log))
 	return &Harness{
@@ -125,8 +118,4 @@ func (h *Harness) Dial(u string) *mgo.Session {
 	session.SetSyncTimeout(time.Minute)
 	session.SetSocketTimeout(time.Minute)
 	return session
-}
-
-type registerMetrics interface {
-	RegisterMetrics(r *gangliamr.Registry)
 }
