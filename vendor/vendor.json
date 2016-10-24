@@ -23,34 +23,14 @@
 			"revisionTime": "2016-01-27T19:34:07Z"
 		},
 		{
-			"path": "github.com/facebookgo/flag.addrs",
-			"revision": "cd2dd02476fc8293fae9ef92b1597c180a661565",
-			"revisionTime": "2015-06-12T20:43:06Z"
-		},
-		{
 			"path": "github.com/facebookgo/freeport",
 			"revision": "d4adf43b75b9357dc7775f033e807a3411591522",
 			"revisionTime": "2015-06-12T18:29:05Z"
 		},
 		{
-			"path": "github.com/facebookgo/ganglia/gmetric",
-			"revision": "1a92b6610794bff10d042f410ef4fc1452f2c194",
-			"revisionTime": "2015-06-12T18:29:05Z"
-		},
-		{
-			"path": "github.com/facebookgo/gangliamr",
-			"revision": "894a3e3d328835dca5e663c3182f3ae76790e496",
-			"revisionTime": "2015-06-12T18:29:06Z"
-		},
-		{
 			"path": "github.com/facebookgo/inject",
 			"revision": "d5029152fecb2a8e68f7f8eb3c6391fc8ee70496",
 			"revisionTime": "2015-06-12T20:10:50Z"
-		},
-		{
-			"path": "github.com/facebookgo/metrics",
-			"revision": "2d1ecf9e7b24ab0aae1240545968c4fa709e415e",
-			"revisionTime": "2014-04-02T14:52:21-07:00"
 		},
 		{
 			"path": "github.com/facebookgo/mgotest",

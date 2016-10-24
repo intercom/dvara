@@ -10,7 +10,6 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/facebookgo/ensure"
-	"github.com/facebookgo/gangliamr"
 	"github.com/facebookgo/inject"
 	"github.com/facebookgo/startstop"
 
@@ -369,12 +368,6 @@ func TestProxyQuery(t *testing.T) {
 	ensure.Nil(t, err)
 	ensure.Nil(t, graph.Populate())
 	objects := graph.Objects()
-	gregistry := gangliamr.NewTestRegistry()
-	for _, o := range objects {
-		if rmO, ok := o.Value.(registerMetrics); ok {
-			rmO.RegisterMetrics(gregistry)
-		}
-	}
 	ensure.Nil(t, startstop.Start(objects, &log))
 	defer startstop.Stop(objects, &log)
 

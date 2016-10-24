@@ -248,9 +248,7 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 
 	c = teeIf(fmt.Sprintf("client %s <=> %s", c.RemoteAddr(), p), c)
 	stats.BumpSum(p.stats, "client.connected", 1)
-	p.ReplicaSet.ClientsConnected.Inc(1)
 	defer func() {
-		p.ReplicaSet.ClientsConnected.Dec(1)
 		p.wg.Done()
 		if err := c.Close(); err != nil {
 			corelog.LogError("error", err)

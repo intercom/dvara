@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/facebookgo/gangliamr"
 	"github.com/facebookgo/inject"
 	"github.com/facebookgo/startstop"
 	"github.com/intercom/dvara"
@@ -83,14 +82,6 @@ func Main() error {
 	}
 	objects := graph.Objects()
 
-	// Temporarily setup the metrics against a test registry.
-	gregistry := gangliamr.NewTestRegistry()
-	for _, o := range objects {
-		if rmO, ok := o.Value.(registerMetrics); ok {
-			rmO.RegisterMetrics(gregistry)
-		}
-	}
-
 	hc := &dvara.HealthChecker{
 		HealthCheckInterval:        *healthCheckInterval,
 		FailedHealthCheckThreshold: *failedHealthCheckThreshold,
@@ -110,8 +101,4 @@ func Main() error {
 	<-ch
 	signal.Stop(ch)
 	return nil
-}
-
-type registerMetrics interface {
-	RegisterMetrics(r *gangliamr.Registry)
 }
