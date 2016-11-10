@@ -38,6 +38,7 @@ func Main() error {
 	username := flag.String("username", "", "mongo db username")
 	metricsAddress := flag.String("metrics", "127.0.0.1:8125", "UDP address to send metrics to datadog, default is 127.0.0.1:8125")
 	replicaName := flag.String("replica_name", "", "Replica name, used in metrics and logging, default is empty")
+	replicaSetName := flag.String("replica_set_name", "", "Replica set name, used to filter hosts runnning other replica sets")
 	healthCheckInterval := flag.Duration("healthcheckinterval", 5*time.Second, "How often to run the health check")
 	failedHealthCheckThreshold := flag.Uint("failedhealthcheckthreshold", 3, "How many failed checks before a restart")
 
@@ -58,6 +59,7 @@ func Main() error {
 		ServerClosePoolSize:     *serverClosePoolSize,
 		ServerIdleTimeout:       *serverIdleTimeout,
 		Username:                *username,
+		Name:                    *replicaSetName,
 	}
 	stateManager := dvara.NewStateManager(&replicaSet)
 
