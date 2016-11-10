@@ -66,6 +66,16 @@ func Main() error {
 	corelog.SetStandardFields("replicaset", *replicaName)
 	corelog.UseTimestamp(true)
 
+	// Log command line args
+	startupOptions := []interface{} {}
+	flag.CommandLine.VisitAll(func(flag *flag.Flag) {
+		if flag.Name != "password" {
+			startupOptions = append(startupOptions, flag.Name, flag.Value.String())
+		}
+		corelog.LogInfo(flag.Name, flag.Value.String())
+	})
+	corelog.LogInfoMessage("starting with command line arguments", startupOptions...)
+
 	// Wrapper for inject
 	log := Logger{}
 
