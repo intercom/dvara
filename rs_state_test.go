@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/facebookgo/mgotest"
+	"time"
 )
 
 func TestFilterRSStatus(t *testing.T) {
@@ -310,5 +311,24 @@ func TestNewReplicaSetStateFailure(t *testing.T) {
 	const expected = "no reachable servers"
 	if err == nil || err.Error() != expected {
 		t.Fatalf("unexpected error: %s", err)
+	}
+}
+
+func TestReplicaStateFailsFast(t *testing.T) {
+	t.Parallel()
+	max_latency, err := time.ParseDuration("10ms")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mgo := mgotest.NewStartedServer(t)
+	mgo.Stop()
+	start := time.Now()
+	_, err = NewReplicaSetState("", "", mgo.URL())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	latency := time.Since(start)
+	if latency.Nanoseconds() > max_latency.Nanoseconds() {
+		t.Errorf("RS state sync took too long, took %s, allowed %s", latency, max_latency)
 	}
 }

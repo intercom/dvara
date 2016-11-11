@@ -33,6 +33,7 @@ func NewReplicaSetState(username, password, addr string) (*ReplicaSetState, erro
 		Username: username,
 		Password: password,
 		Direct:   true,
+		FailFast: true,
 		Timeout:  TIMEOUT,
 	}
 	session, err := mgo.DialWithInfo(info)
