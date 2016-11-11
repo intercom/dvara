@@ -6,13 +6,10 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/facebookgo/stats"
-	corelog "github.com/intercom/gocore/log"
 )
 
 var hardRestart = flag.Bool(
@@ -105,48 +102,7 @@ func (r *ReplicaSet) Start() error {
 }
 
 func (r *ReplicaSet) proxyAddr(l net.Listener) string {
-	_, port, err := net.SplitHostPort(l.Addr().String())
-	if err != nil {
-		panic(err)
-	}
-
-	return fmt.Sprintf("%s:%s", r.proxyHostname(), port)
-}
-
-func (r *ReplicaSet) proxyHostname() string {
-	const home = "127.0.0.1"
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		corelog.LogError("error", err)
-		return home
-	}
-
-	// The follow logic ensures that the hostname resolves to a local address.
-	// If it doesn't we don't use it since it probably wont work anyways.
-	hostnameAddrs, err := net.LookupHost(hostname)
-	if err != nil {
-		corelog.LogError("error", err)
-		return home
-	}
-
-	interfaceAddrs, err := net.InterfaceAddrs()
-	if err != nil {
-		corelog.LogError("error", err)
-		return home
-	}
-
-	for _, ia := range interfaceAddrs {
-		sa := ia.String()
-		for _, ha := range hostnameAddrs {
-			// check for an exact match or a match ignoring the suffix bits
-			if sa == ha || strings.HasPrefix(sa, ha+"/") {
-				return hostname
-			}
-		}
-	}
-	corelog.LogInfoMessage(fmt.Sprintf("hostname %s doesn't resolve to the current host", hostname))
-	return home
+	return l.Addr().String()
 }
 
 func (r *ReplicaSet) newListener() (net.Listener, error) {
