@@ -65,7 +65,7 @@ type CheckableMongoConnector interface {
 // Attemps to connect to Mongo through Dvara, with timeout.
 func (r *ReplicaSet) Check(timeout time.Duration) error {
 	errChan := make(chan error)
-	go r.runCheck(r.PortStart, errChan)
+	go r.runCheck(errChan)
 	// blocking wait
 	select {
 	case err := <-errChan:
@@ -90,29 +90,33 @@ func (r *ReplicaSet) HandleFailure() {
 }
 
 // Attemps to connect to Mongo through Dvara. Blocking call.
-func (r *ReplicaSet) runCheck(portStart int, errChan chan<- error) {
-	t := r.Stats.BumpTime("healthcheck.time")
-	t.End()
+func (r *ReplicaSet) runCheck(errChan chan<- error) {
+	defer r.Stats.BumpTime("healthcheck.time").End()
+
 	// dvara opens a port per member of replica set, we don't expect to run more than 5 members in replica set
-	dvaraConnectionString := fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d", portStart, portStart+1, portStart+2, portStart+3, portStart+4)
-
-	info := &mgo.DialInfo{
-		Addrs:    strings.Split(dvaraConnectionString, ","),
-		FailFast: true,
-		// Without direct option, healthcheck fails in case there are only secondaries in the replica set
-		Direct: true,
-	}
-
-	session, err := mgo.DialWithInfo(info)
-	if err == nil {
-		defer session.Close()
-		session.SetMode(mgo.PrimaryPreferred, true)
-		_, replStatusErr := replSetGetStatus(session)
-		err = replStatusErr
-	}
+	addrs := strings.Split(fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d", r.PortStart, r.PortStart+1, r.PortStart+2, r.PortStart+3, r.PortStart+4), ",")
+	err := checkReplSetStatus(addrs, r.Name)
 	select {
 	case errChan <- err:
 	default:
 		return
 	}
+}
+
+func checkReplSetStatus(addrs []string, replicaSetName string) error {
+	info := &mgo.DialInfo{
+		Addrs:    addrs,
+		FailFast: true,
+		// Without direct option, healthcheck fails in case there are only secondaries in the replica set
+		Direct: true,
+		ReplicaSetName: replicaSetName,
+	}
+
+	session, err := mgo.DialWithInfo(info)
+	if err != nil {
+		return err
+	}
+	defer session.Close()
+	_, replStatusErr := replSetGetStatus(session)
+	return replStatusErr
 }
