@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/afex/hystrix-go/hystrix"
 	"github.com/facebookgo/stats"
 	corelog "github.com/intercom/gocore/log"
 )
@@ -258,7 +259,13 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 
 	var lastError LastError
 	for {
-		p.handleRequest(c, &lastError)
+		err := hystrix.Do(p.String(), func() error {
+			return p.handleRequest(c, &lastError)
+		}, nil)
+
+		if err != nil {
+			corelog.LogError("hystrix error", err)
+		}
 	}
 }
 
