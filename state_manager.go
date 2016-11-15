@@ -71,8 +71,7 @@ func (manager *StateManager) KeepSynchronized(syncChan chan struct{}) {
 
 // Get new state for a replica set, and synchronize internal state.
 func (manager *StateManager) Synchronize() {
-	t := manager.replicaSet.Stats.BumpTime("replica.manager.time")
-	defer t.End()
+	defer manager.replicaSet.Stats.BumpTime("replica.manager.time").End()
 
 	manager.RLock()
 	newState, err := manager.generateReplicaSetState()
@@ -92,8 +91,7 @@ func (manager *StateManager) Synchronize() {
 	}
 	manager.RUnlock() // all reads done
 
-	lockedTime := manager.replicaSet.Stats.BumpTime("replica.manager.time.locked")
-	defer lockedTime.End()
+	defer manager.replicaSet.Stats.BumpTime("replica.manager.time.locked").End()
 
 	manager.Lock()
 	defer manager.Unlock()
