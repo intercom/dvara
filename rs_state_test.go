@@ -2,8 +2,9 @@ package dvara
 
 import (
 	"testing"
-
+	"sync/atomic"
 	"github.com/facebookgo/mgotest"
+	"net"
 )
 
 func TestFilterRSStatus(t *testing.T) {
@@ -310,5 +311,51 @@ func TestNewReplicaSetStateFailure(t *testing.T) {
 	const expected = "no reachable servers"
 	if err == nil || err.Error() != expected {
 		t.Fatalf("unexpected error: %s", err)
+	}
+}
+
+func TestReplicaStateFailsFast(t *testing.T) {
+	t.Parallel()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil { t.Fatal(err) }
+	server := closedTCPServer{listener: listener}
+	defer server.Close()
+	err = server.Start()
+	if err != nil { t.Fatal(err) }
+
+	_, err = NewReplicaSetState("", "", listener.Addr().String())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	numAccepts := server.CountAccepts()
+	if numAccepts != 1 {
+		t.Errorf("RS state sync tried to connect %d times, expecting once", numAccepts)
+	}
+}
+
+type closedTCPServer struct {
+	listener net.Listener
+	ops      uint64
+}
+
+func (server *closedTCPServer) Start() error {
+	go server.acceptLoop()
+	return nil
+}
+
+func (server *closedTCPServer) Close() error {
+	return server.listener.Close()
+}
+
+func (server *closedTCPServer) CountAccepts() uint64 {
+	return atomic.LoadUint64(&server.ops)
+}
+
+func (server *closedTCPServer) acceptLoop() {
+	for {
+		conn, err := server.listener.Accept()
+		if err != nil { return }
+		atomic.AddUint64(&server.ops, 1)
+		if conn.Close() != nil { return }
 	}
 }
