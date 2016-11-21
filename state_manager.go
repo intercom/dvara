@@ -195,7 +195,9 @@ func (manager *StateManager) getComparison(oldResp, newResp *replSetGetStatusRes
 	}
 
 	for _, m := range oldResp.Members {
-		comparison.ExtraMembers[m.Name] = manager.findProxyForMember(m)
+		if proxy, ok := manager.findProxyForMember(m); ok {
+			comparison.ExtraMembers[m.Name] = proxy
+		}
 	}
 
 	for _, m := range newResp.Members {
@@ -280,10 +282,11 @@ func (manager *StateManager) stopProxy(proxy *Proxy) {
 	}
 }
 
-func (manager *StateManager) findProxyForMember(member statusMember) *Proxy {
+func (manager *StateManager) findProxyForMember(member statusMember) (*Proxy, bool) {
 	proxyName, ok := manager.realToProxy[member.Name]
 	if !ok {
-		return nil
+		return nil, false
 	}
-	return manager.proxies[proxyName]
+	proxy, ok := manager.proxies[proxyName]
+	return proxy, ok
 }
