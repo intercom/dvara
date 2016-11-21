@@ -73,7 +73,6 @@ func Main() error {
 		if flag.Name != "password" {
 			startupOptions = append(startupOptions, flag.Name, flag.Value.String())
 		}
-		corelog.LogInfo(flag.Name, flag.Value.String())
 	})
 	corelog.LogInfoMessage("starting with command line arguments", startupOptions...)
 
