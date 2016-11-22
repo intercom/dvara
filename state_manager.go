@@ -8,6 +8,7 @@ import (
 
 	"github.com/facebookgo/stackerr"
 	corelog "github.com/intercom/gocore/log"
+	"time"
 )
 
 type StateManager struct {
@@ -20,6 +21,7 @@ type StateManager struct {
 	proxyToReal map[string]string
 	realToProxy map[string]string
 	proxies     map[string]*Proxy
+	refreshTime time.Time
 }
 
 func NewStateManager(replicaSet *ReplicaSet) *StateManager {
@@ -56,6 +58,7 @@ func (manager *StateManager) Start() error {
 	for _, proxy := range manager.proxies {
 		go manager.startProxy(proxy)
 	}
+	manager.refreshTime = time.Now()
 	return nil
 }
 
@@ -71,8 +74,8 @@ func (manager *StateManager) KeepSynchronized(syncChan chan struct{}) {
 
 // Get new state for a replica set, and synchronize internal state.
 func (manager *StateManager) Synchronize() {
-	t := manager.replicaSet.Stats.BumpTime("replica.manager.time")
-	defer t.End()
+	defer manager.replicaSet.Stats.BumpTime("replica.manager.time").End()
+	manager.replicaSet.Stats.BumpHistogram("replica.manager.rs_state_age", float64(time.Since(manager.refreshTime).Nanoseconds()))
 
 	manager.RLock()
 	newState, err := manager.generateReplicaSetState()
@@ -92,8 +95,7 @@ func (manager *StateManager) Synchronize() {
 	}
 	manager.RUnlock() // all reads done
 
-	lockedTime := manager.replicaSet.Stats.BumpTime("replica.manager.time.locked")
-	defer lockedTime.End()
+	defer manager.replicaSet.Stats.BumpTime("replica.manager.time.locked").End()
 
 	manager.Lock()
 	defer manager.Unlock()
@@ -111,6 +113,7 @@ func (manager *StateManager) Synchronize() {
 	// still be able to connect.
 	rawAddrs := strings.Split(manager.baseAddrs, ",")
 	manager.baseAddrs = strings.Join(uniq(append(rawAddrs, manager.currentReplicaSetState.Addrs()...)), ",")
+	manager.refreshTime = time.Now()
 }
 
 func (manager *StateManager) ProxyMembers() []string {
@@ -197,7 +200,9 @@ func (manager *StateManager) getComparison(oldResp, newResp *replSetGetStatusRes
 	}
 
 	for _, m := range oldResp.Members {
-		comparison.ExtraMembers[m.Name] = manager.findProxyForMember(m)
+		if proxy, ok := manager.findProxyForMember(m); ok {
+			comparison.ExtraMembers[m.Name] = proxy
+		}
 	}
 
 	for _, m := range newResp.Members {
@@ -282,10 +287,11 @@ func (manager *StateManager) stopProxy(proxy *Proxy) {
 	}
 }
 
-func (manager *StateManager) findProxyForMember(member statusMember) *Proxy {
+func (manager *StateManager) findProxyForMember(member statusMember) (*Proxy, bool) {
 	proxyName, ok := manager.realToProxy[member.Name]
 	if !ok {
-		return nil
+		return nil, false
 	}
-	return manager.proxies[proxyName]
+	proxy, ok := manager.proxies[proxyName]
+	return proxy, ok
 }

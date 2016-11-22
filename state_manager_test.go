@@ -8,6 +8,7 @@ import (
 
 func TestManagerFindsMissingExtraMembers(t *testing.T) {
 	manager := newManager()
+	manager.addProxies("a", "b")
 
 	comparison, _ := manager.getComparison(getStatusResponse("a", "b"), getStatusResponse("a", "c"))
 	if _, ok := comparison.ExtraMembers["b"]; !ok {
@@ -37,6 +38,15 @@ func TestManagerAddsAndRemovesProxies(t *testing.T) {
 	}
 	if _, ok := manager.proxies[manager.realToProxy["mongoC"]]; !ok {
 		t.Fatal("proxyC was not added")
+	}
+}
+
+func TestManagerWithMissingMembersInCurrentState(t *testing.T) {
+	manager := newManager()
+	manager.addProxies("mongoA")
+	comparison, _ := manager.getComparison(getStatusResponse("mongoA", "mongoB"), getStatusResponse("mongoA", "mongoC"))
+	if _, ok := comparison.ExtraMembers["mongoB"]; ok {
+		t.Fatal("mongoB is not currently running")
 	}
 }
 
