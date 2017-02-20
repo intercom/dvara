@@ -68,23 +68,12 @@ func (p *Proxy) Start() error {
 
 	// plug stats if we can
 	if p.ReplicaSet.Stats != nil {
-		// Drop the default port suffix to make them pretty in production.
-		dbName := strings.TrimSuffix(p.MongoAddr, ":27017")
-
-		// We want 2 sets of keys, one specific to the proxy, and another shared
-		// with others.
 		p.serverPool.Stats = stats.PrefixClient(
-			[]string{
-				"mongoproxy.server.pool.",
-				fmt.Sprintf("mongoproxy.%s.server.pool.", dbName),
-			},
+			[]string{"mongoproxy.server.pool."},
 			p.ReplicaSet.Stats,
 		)
 		p.stats = stats.PrefixClient(
-			[]string{
-				"mongoproxy.",
-				fmt.Sprintf("mongoproxy.%s.", dbName),
-			},
+			[]string{"mongoproxy."},
 			p.ReplicaSet.Stats,
 		)
 	}
