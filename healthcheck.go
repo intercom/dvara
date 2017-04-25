@@ -72,8 +72,6 @@ func (r *ReplicaSet) Check(timeout time.Duration) error {
 		if err != nil {
 			r.Stats.BumpSum("healthcheck.failed", 1)
 			corelog.LogErrorMessage(fmt.Sprintf("Failed healthcheck due to %s", err))
-		} else {
-			r.Stats.BumpSum("healthcheck.connected", 1)
 		}
 		return err
 	case <-time.After(timeout):
@@ -91,8 +89,6 @@ func (r *ReplicaSet) HandleFailure() {
 
 // Attemps to connect to Mongo through Dvara. Blocking call.
 func (r *ReplicaSet) runCheck(errChan chan<- error) {
-	defer r.Stats.BumpTime("healthcheck.time").End()
-
 	// dvara opens a port per member of replica set, we don't expect to run more than 5 members in replica set
 	addrs := strings.Split(fmt.Sprintf("127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d,127.0.0.1:%d", r.PortStart, r.PortStart+1, r.PortStart+2, r.PortStart+3, r.PortStart+4), ",")
 	err := checkReplSetStatus(addrs, r.Name)
@@ -108,7 +104,7 @@ func checkReplSetStatus(addrs []string, replicaSetName string) error {
 		Addrs:    addrs,
 		FailFast: true,
 		// Without direct option, healthcheck fails in case there are only secondaries in the replica set
-		Direct: true,
+		Direct:         true,
 		ReplicaSetName: replicaSetName,
 	}
 

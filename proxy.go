@@ -368,14 +368,12 @@ func (p *Proxy) clientReadHeader(c net.Conn, timeout time.Duration) (*messageHea
 
 	// Client side disconnected.
 	if response.error == io.EOF {
-		stats.BumpSum(p.stats, "client.clean.disconnect", 1)
 		return nil, errNormalClose
 	}
 
 	// We hit our ReadDeadline.
 	if ne, ok := response.error.(net.Error); ok && ne.Timeout() {
 		if closed {
-			stats.BumpSum(p.stats, "client.clean.disconnect", 1)
 			return nil, errNormalClose
 		}
 		return nil, errClientReadTimeout

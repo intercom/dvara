@@ -381,23 +381,9 @@ func TestIdleClose(t *testing.T) {
 
 	klock := clock.NewMock()
 
-	// we going to wait until stats shows we closed enough idle
-	statsDone := make(chan struct{})
-	expectedIdleClosed := int32(max - minIdle)
-	hc := &stats.HookClient{
-		BumpSumHook: func(key string, val float64) {
-			if key == "idle.closed" {
-				if atomic.AddInt32(&expectedIdleClosed, -int32(val)) == 0 {
-					close(statsDone)
-				}
-			}
-		},
-	}
-
 	var cm resourceMaker
 	p := Pool{
 		New:           cm.New,
-		Stats:         hc,
 		Max:           max,
 		MinIdle:       minIdle,
 		IdleTimeout:   time.Second,
@@ -425,9 +411,6 @@ func TestIdleClose(t *testing.T) {
 
 	// tick another IdleTimeout to make them eligible
 	klock.Add(p.IdleTimeout)
-
-	// stats should soon show idle closed
-	<-statsDone
 
 	// tick another IdleTimeout to hit the eligibleOffset check
 	klock.Add(p.IdleTimeout)

@@ -61,8 +61,6 @@ type Pool struct {
 
 // Acquire will pull a resource from the pool or create a new one if necessary.
 func (p *Pool) Acquire() (io.Closer, error) {
-	elapsedTime := stats.BumpTime(p.Stats, "acquire.time")
-	defer elapsedTime.End()
 	p.manageOnce.Do(p.goManage)
 	r := make(chan io.Closer)
 	p.acquire <- r
@@ -75,10 +73,7 @@ func (p *Pool) Acquire() (io.Closer, error) {
 
 	// need to allocate a new resource
 	if c == newSentinel {
-		t := stats.BumpTime(p.Stats, "acquire.new.time")
 		c, err := p.New()
-		t.End()
-		stats.BumpSum(p.Stats, "acquire.new", 1)
 		if err != nil {
 			stats.BumpSum(p.Stats, "acquire.error.new", 1)
 			// discard our assumed checked out resource since we failed to New
@@ -328,7 +323,6 @@ func (p *Pool) manage() {
 			resources = resources[:copy(resources, resources[idleLen:])]
 
 			t.End()
-			stats.BumpSum(p.Stats, "idle.closed", float64(idleLen))
 		case <-statsTicker.C:
 			// We can assume if we hit this then p.Stats is not nil
 			p.Stats.BumpAvg("waiting", float64(waiting.Len()))
