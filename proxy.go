@@ -163,7 +163,6 @@ func (p *Proxy) proxyMessage(
 	// OpQuery may need to be transformed and need special handling in order to
 	// make the proxy transparent.
 	if h.OpCode == OpQuery {
-		stats.BumpSum(p.stats, "message.with.response", 1)
 		return p.ReplicaSet.ProxyQuery.Proxy(h, client, server, lastError)
 	}
 
@@ -187,7 +186,6 @@ func (p *Proxy) proxyMessage(
 
 	// For Ops with responses we proxy the raw response message over.
 	if h.OpCode.HasResponse() {
-		stats.BumpSum(p.stats, "message.with.response", 1)
 		if err := copyMessage(client, server); err != nil {
 			corelog.LogError("error", err)
 			return err
@@ -335,7 +333,6 @@ func (p *Proxy) gleClientReadHeader(c net.Conn) (*messageHeader, error) {
 }
 
 func (p *Proxy) clientReadHeader(c net.Conn, timeout time.Duration) (*messageHeader, error) {
-	t := stats.BumpTime(p.stats, "client.read.header.time")
 	type headerError struct {
 		header *messageHeader
 		error  error
@@ -362,7 +359,6 @@ func (p *Proxy) clientReadHeader(c net.Conn, timeout time.Duration) (*messageHea
 
 	// Successfully read a header.
 	if response.error == nil {
-		t.End()
 		return response.header, nil
 	}
 
