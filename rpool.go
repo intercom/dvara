@@ -231,7 +231,6 @@ func (p *Pool) manage() {
 				r <- c.resource
 				resources = resources[:cl-1]
 				out++
-				stats.BumpSum(p.Stats, "acquire.pool", 1)
 				continue
 			}
 
