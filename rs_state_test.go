@@ -1,10 +1,11 @@
 package dvara
 
 import (
-	"testing"
-	"sync/atomic"
-	"github.com/facebookgo/mgotest"
 	"net"
+	"sync/atomic"
+	"testing"
+
+	"github.com/facebookgo/mgotest"
 )
 
 func TestFilterRSStatus(t *testing.T) {
@@ -57,7 +58,7 @@ func TestFilterRSStatus(t *testing.T) {
 	for _, c := range cases {
 		response, err := filterReplGetStatus(c.A, nil)
 		if !sameRSMembers(response, c.B) || err != nil {
-			t.Fatalf("failed %s with input %s response %s expected response %s", c.Name, c.A, response, c.B)
+			t.Fatalf("failed %v with input %v response %v expected response %v", c.Name, c.A, response, c.B)
 		}
 	}
 }
@@ -317,11 +318,15 @@ func TestNewReplicaSetStateFailure(t *testing.T) {
 func TestReplicaStateFailsFast(t *testing.T) {
 	t.Parallel()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	server := closedTCPServer{listener: listener}
 	defer server.Close()
 	err = server.Start()
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, err = NewReplicaSetState("", "", listener.Addr().String())
 	if err == nil {
@@ -354,8 +359,12 @@ func (server *closedTCPServer) CountAccepts() uint64 {
 func (server *closedTCPServer) acceptLoop() {
 	for {
 		conn, err := server.listener.Accept()
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 		atomic.AddUint64(&server.ops, 1)
-		if conn.Close() != nil { return }
+		if conn.Close() != nil {
+			return
+		}
 	}
 }

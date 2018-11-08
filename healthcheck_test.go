@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+
 	"github.com/facebookgo/mgotest"
 )
 
@@ -37,7 +38,7 @@ func TestEnsureRestartIsCalled(t *testing.T) {
 	hc.Cancel = true
 
 	if frs.handleFailureCalled == false {
-		t.Fatalf("Restart function not called :( %s", frs)
+		t.Fatalf("Restart function not called :( %v", frs)
 	}
 
 }
@@ -56,7 +57,7 @@ func TestEnsureRestartIsNotCalled(t *testing.T) {
 	hc.Cancel = true
 
 	if frs.handleFailureCalled == true {
-		t.Fatalf("Restart function not called :( %s", frs)
+		t.Fatalf("Restart function not called :( %v", frs)
 	}
 
 }
