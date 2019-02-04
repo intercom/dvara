@@ -146,5 +146,8 @@ func (socket *mongoSocket) Login(cred Credential) error {
 	if err != nil {
 		return err
 	}
+	if !res.Ok {
+		return errors.New(res.ErrMsg)
+	}
 	return err
 }
