@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/afex/hystrix-go/hystrix"
 	"github.com/facebookgo/stats"
 	corelog "github.com/intercom/gocore/log"
 )
@@ -245,72 +246,83 @@ func (p *Proxy) clientServeLoop(c net.Conn) {
 
 	var lastError LastError
 	for {
-		h, err := p.idleClientReadHeader(c)
+		err := hystrix.Do(p.String(), func() error {
+			return p.handleRequest(c, &lastError)
+		}, nil)
+
 		if err != nil {
-			if err != errNormalClose {
-				corelog.LogError("error", err)
+			corelog.LogError("hystrix error", err)
+		}
+	}
+}
+
+func (p *Proxy) handleRequest(c net.Conn, lastError *LastError) error {
+	h, err := p.idleClientReadHeader(c)
+	if err != nil {
+		if err != errNormalClose {
+			corelog.LogError("error", err)
+		}
+		return err
+	}
+
+	mpt := stats.BumpTime(p.stats, "message.proxy.time")
+	serverConn, err := p.getServerConn()
+	if err != nil {
+		if err != errNormalClose {
+			corelog.LogError("error", err)
+		}
+		return err
+	}
+
+	scht := stats.BumpTime(p.stats, "server.conn.held.time")
+	for {
+		err := p.proxyMessage(h, c, serverConn, lastError)
+		if err != nil {
+			p.serverPool.Discard(serverConn)
+			corelog.LogErrorMessage(fmt.Sprintf("Proxy message failed %s ", err))
+			stats.BumpSum(p.stats, "message.proxy.error", 1)
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				stats.BumpSum(p.stats, "message.proxy.timeout", 1)
 			}
-			return
+			return err
 		}
 
-		mpt := stats.BumpTime(p.stats, "message.proxy.time")
-		serverConn, err := p.getServerConn()
-		if err != nil {
-			if err != errNormalClose {
-				corelog.LogError("error", err)
-			}
-			return
+		// One message was proxied, stop it's timer.
+		mpt.End()
+
+		if !h.OpCode.IsMutation() {
+			break
 		}
 
-		scht := stats.BumpTime(p.stats, "server.conn.held.time")
-		for {
-			err := p.proxyMessage(h, c, serverConn, &lastError)
-			if err != nil {
-				p.serverPool.Discard(serverConn)
-				corelog.LogErrorMessage(fmt.Sprintf("Proxy message failed %s ", err))
-				stats.BumpSum(p.stats, "message.proxy.error", 1)
-				if ne, ok := err.(net.Error); ok && ne.Timeout() {
-					stats.BumpSum(p.stats, "message.proxy.timeout", 1)
-				}
-				return
-			}
+		// If the operation we just performed was a mutation, we always make the
+		// follow up request on the same server because it's possibly a getLastErr
+		// call which expects this behavior.
 
-			// One message was proxied, stop it's timer.
-			mpt.End()
-
-			if !h.OpCode.IsMutation() {
+		stats.BumpSum(p.stats, "message.with.mutation", 1)
+		h, err = p.gleClientReadHeader(c)
+		if err != nil {
+			// Client did not make _any_ query within the GetLastErrorTimeout.
+			// Return the server to the pool and wait go back to outer loop.
+			if err == errClientReadTimeout {
 				break
 			}
-
-			// If the operation we just performed was a mutation, we always make the
-			// follow up request on the same server because it's possibly a getLastErr
-			// call which expects this behavior.
-
-			stats.BumpSum(p.stats, "message.with.mutation", 1)
-			h, err = p.gleClientReadHeader(c)
-			if err != nil {
-				// Client did not make _any_ query within the GetLastErrorTimeout.
-				// Return the server to the pool and wait go back to outer loop.
-				if err == errClientReadTimeout {
-					break
-				}
-				// Prevent noise of normal client disconnects, but log if anything else.
-				if err != errNormalClose {
-					corelog.LogError("error", err)
-				}
-				// We need to return our server to the pool (it's still good as far
-				// as we know).
-				p.serverPool.Release(serverConn)
-				return
+			// Prevent noise of normal client disconnects, but log if anything else.
+			if err != errNormalClose {
+				corelog.LogError("error", err)
 			}
-
-			// Successfully read message when waiting for the getLastError call.
-			mpt = stats.BumpTime(p.stats, "message.proxy.time")
+			// We need to return our server to the pool (it's still good as far
+			// as we know).
+			p.serverPool.Release(serverConn)
+			return err
 		}
-		p.serverPool.Release(serverConn)
-		scht.End()
-		stats.BumpSum(p.stats, "message.proxy.success", 1)
+
+		// Successfully read message when waiting for the getLastError call.
+		mpt = stats.BumpTime(p.stats, "message.proxy.time")
 	}
+	p.serverPool.Release(serverConn)
+	scht.End()
+	stats.BumpSum(p.stats, "message.proxy.success", 1)
+	return nil
 }
 
 // We wait for upto ClientIdleTimeout in MessageTimeout increments and keep
